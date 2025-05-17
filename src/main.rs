@@ -24,7 +24,7 @@ async fn main() -> Result<()> {
 
     let mut any_enabled = false;
 
-    let mut conn = Builder::session()?.name("org.freedesktop.portal.desktop.porta")?;
+    let mut conn = Builder::session()?.name("org.freedesktop.impl.portal.desktop.porta")?;
 
     if let Some(config) = config.settings {
         if config.enabled {
