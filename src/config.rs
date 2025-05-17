@@ -1,8 +1,10 @@
-use std::{fs, path::PathBuf};
+use std::{env, fs, path::PathBuf};
 
 use serde::Deserialize;
 
 use crate::portals::settings::config::SettingsConf;
+
+const CONFIG_APP_NAME: &'static str = "xdg-desktop-portal-porta";
 
 #[derive(Debug, Default, Deserialize)]
 pub struct Config {
@@ -28,6 +30,19 @@ impl From<toml::de::Error> for ConfigErr {
 }
 
 impl Config {
+    pub fn from_xdg_dirs() -> Result<Config, ConfigErr> {
+        let config_home = env::var("XDG_CONFIG_HOME")
+            .map(|path| path.into())
+            .or_else(|_| {
+                let home_dir: PathBuf = env::var("HOME").expect("cant evaluate HOME").into();
+                Ok::<PathBuf, ConfigErr>(home_dir.join(".config"))
+            })?
+            .join(CONFIG_APP_NAME)
+            .join("config.toml");
+
+        Config::from_path(config_home)
+    }
+
     pub fn from_path(path: PathBuf) -> Result<Config, ConfigErr> {
         if !path.exists() {
             return Err(ConfigErr::NotFound);
