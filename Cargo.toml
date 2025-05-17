@@ -1,0 +1,13 @@
+[package]
+name = "xdg-desktop-portal-porta"
+description = "A collection of several xdg-desktop-portal implementations to serve more lightweight wayland compositors like Hyprland"
+version = "0.1.0"
+edition = "2024"
+license = "GPL-3.0-or-later"
+
+[dependencies]
+serde = { version = "1.0.219", features = ["derive"] }
+tokio = { version = "1.45.0", features = ["full"] }
+toml = "0.8.22"
+zbus = { version = "5.7.0", features = ["tokio"] }
+zvariant = "5.5.3"
