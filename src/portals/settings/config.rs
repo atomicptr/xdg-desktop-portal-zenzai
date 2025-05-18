@@ -19,6 +19,7 @@ impl Into<u32> for ColorScheme {
     }
 }
 
+// TODO: allow specifying accent color as hex or 0-255 segments
 #[derive(Debug, Deserialize, Default, Clone)]
 pub struct AccentColor {
     #[serde(deserialize_with = "deserialize_rgb")]

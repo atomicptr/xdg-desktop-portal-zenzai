@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use zbus::{fdo, interface};
+use zbus::{fdo, interface, object_server::SignalEmitter};
 use zvariant::Value;
 
 use crate::portals::settings::config::{AccentColor, Contrast};
@@ -8,6 +8,9 @@ use crate::portals::settings::config::{AccentColor, Contrast};
 use super::config::{ColorScheme, SettingsConf};
 
 const NAMESPACE: &'static str = "org.freedesktop.appearance";
+const KEY_COLOR_SCHEME: &'static str = "color-scheme";
+const KEY_CONTRAST: &'static str = "contrast";
+const KEY_ACCENT_COLOR: &'static str = "accent-color";
 
 pub struct SettingsService {
     pub config: SettingsConf,
@@ -17,15 +20,10 @@ pub struct SettingsService {
 impl SettingsService {
     #[zbus(property, name = "version")]
     async fn version(&self) -> u32 {
-        0
+        1
     }
 
-    // read is deprecated, not yet sure how .ReadOne is different so we just call it as-is
     async fn read(&self, namespace: &str, key: &str) -> fdo::Result<Value<'_>> {
-        self.read_one(namespace, key).await
-    }
-
-    async fn read_one(&self, namespace: &str, key: &str) -> fdo::Result<Value<'_>> {
         tracing::info!("read_one: {}.{}", namespace, key);
 
         if namespace != NAMESPACE {
@@ -36,15 +34,15 @@ impl SettingsService {
         }
 
         match key {
-            "color-scheme" => match &self.config.color_scheme {
+            KEY_COLOR_SCHEME => match &self.config.color_scheme {
                 None => Ok(Value::U32(ColorScheme::default().into())),
                 Some(color_scheme) => Ok(Value::U32(color_scheme.clone().into())),
             },
-            "contrast" => match &self.config.contrast {
+            KEY_CONTRAST => match &self.config.contrast {
                 None => Ok(Value::U32(Contrast::default().into())),
                 Some(contrast) => Ok(Value::U32(contrast.clone().into())),
             },
-            "accent-color" => match &self.config.accent_color {
+            KEY_ACCENT_COLOR => match &self.config.accent_color {
                 None => Err(fdo::Error::Failed(format!(
                     "zenzai: no accent color defined"
                 ))),
@@ -65,40 +63,49 @@ impl SettingsService {
     async fn read_all(&self, namespaces: Vec<&str>) -> fdo::Result<Value<'_>> {
         tracing::info!("read_all: {:?}", namespaces);
 
+        if !namespaces.contains(&NAMESPACE) {
+            return Err(fdo::Error::Failed(format!(
+                "zenzai: unknown namespaces {:?}",
+                namespaces
+            )));
+        }
+
         let mut result = HashMap::new();
 
-        for ns in namespaces {
-            if ns != NAMESPACE {
-                continue;
-            }
+        let mut nsmap = HashMap::new();
 
-            let mut nsmap = HashMap::new();
+        let color_scheme = self
+            .config
+            .color_scheme
+            .clone()
+            .unwrap_or(ColorScheme::default());
+        nsmap.insert(KEY_COLOR_SCHEME, Value::U32(color_scheme.clone().into()));
 
-            let color_scheme = self
-                .config
-                .color_scheme
-                .clone()
-                .unwrap_or(ColorScheme::default());
-            nsmap.insert("color-scheme", Value::U32(color_scheme.clone().into()));
+        let contrast = self.config.contrast.clone().unwrap_or(Contrast::default());
+        nsmap.insert(KEY_CONTRAST, Value::U32(contrast.clone().into()));
 
-            let contrast = self.config.contrast.clone().unwrap_or(Contrast::default());
-            nsmap.insert("contrast", Value::U32(contrast.clone().into()));
-
-            if let Some(AccentColor { r, g, b }) = &self.config.accent_color {
-                nsmap.insert(
-                    "accent-color",
-                    (
-                        Value::F64(r.clone().into()),
-                        Value::F64(g.clone().into()),
-                        Value::F64(b.clone().into()),
-                    )
-                        .into(),
-                );
-            }
-
-            result.insert(NAMESPACE, nsmap);
+        if let Some(AccentColor { r, g, b }) = &self.config.accent_color {
+            nsmap.insert(
+                KEY_ACCENT_COLOR,
+                (
+                    Value::F64(r.clone().into()),
+                    Value::F64(g.clone().into()),
+                    Value::F64(b.clone().into()),
+                )
+                    .into(),
+            );
         }
+
+        result.insert(NAMESPACE, nsmap);
 
         Ok(result.into())
     }
+
+    #[zbus(signal)]
+    pub async fn setting_changed(
+        ctx: &SignalEmitter<'_>,
+        namespace: String,
+        key: String,
+        value: Value<'_>,
+    ) -> zbus::Result<()>;
 }
