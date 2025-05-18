@@ -21,7 +21,7 @@ impl SettingsService {
     }
 
     async fn read_one(&self, namespace: &str, key: &str) -> fdo::Result<Value<'_>> {
-        println!("read_one: {}.{}", namespace, key);
+        tracing::info!("read_one: {}.{}", namespace, key);
 
         if namespace != NAMESPACE {
             return Err(fdo::Error::Failed(format!(
@@ -58,7 +58,7 @@ impl SettingsService {
     }
 
     async fn read_all(&self, namespaces: Vec<&str>) -> fdo::Result<Value<'_>> {
-        println!("read_all: {:?}", namespaces);
+        tracing::info!("read_all: {:?}", namespaces);
 
         let mut result = HashMap::new();
 

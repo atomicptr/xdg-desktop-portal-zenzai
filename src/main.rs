@@ -1,4 +1,4 @@
-use std::future::pending;
+use std::{env, future::pending};
 
 use config::{Config, ConfigErr};
 use constants::DBUS_NAME;
@@ -11,6 +11,13 @@ mod portals;
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    unsafe {
+        env::set_var("RUST_LOG", "xdg-desktop-portal-porta=info");
+    }
+
+    tracing_subscriber::fmt().init();
+    tracing::info!("Porta start");
+
     let config = match Config::from_xdg_dirs() {
         Ok(config) => config,
         Err(ConfigErr::NotFound) => {
@@ -32,7 +39,7 @@ async fn main() -> Result<()> {
         if config.enabled {
             any_enabled = true;
 
-            println!("Settings portal enabled!");
+            tracing::info!("Settings portal enabled!");
             conn = conn.serve_at(
                 "/org/freedesktop/portal/desktop",
                 SettingsService { config },
@@ -41,7 +48,7 @@ async fn main() -> Result<()> {
     }
 
     if !any_enabled {
-        println!("Nothing was enbaled, quitting");
+        tracing::error!("No portal was enbaled, quitting");
         return Ok(());
     }
 
