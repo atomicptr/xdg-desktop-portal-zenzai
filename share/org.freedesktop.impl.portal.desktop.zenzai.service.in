@@ -1,4 +1,4 @@
 [D-BUS Service]
 Name=org.freedesktop.impl.portal.desktop.zenzai
-Exec=/home/christopher/dev/xdg-desktop-portal-zenzai/target/debug/xdg-desktop-portal-zenzai
+Exec=@xdg_install_dir@/xdg-desktop-portal-zenzai
 SystemdService=xdg-desktop-portal-zenzai.service
