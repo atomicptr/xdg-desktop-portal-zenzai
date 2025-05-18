@@ -1,10 +1,12 @@
 use std::future::pending;
 
 use config::{Config, ConfigErr};
+use constants::DBUS_NAME;
 use portals::settings::service::SettingsService;
 use zbus::{Result, conn::Builder};
 
 mod config;
+mod constants;
 mod portals;
 
 #[tokio::main]
@@ -24,7 +26,7 @@ async fn main() -> Result<()> {
 
     let mut any_enabled = false;
 
-    let mut conn = Builder::session()?.name("org.freedesktop.impl.portal.desktop.porta")?;
+    let mut conn = Builder::session()?.name(DBUS_NAME)?;
 
     if let Some(config) = config.settings {
         if config.enabled {

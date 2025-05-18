@@ -1,0 +1,4 @@
+[D-BUS Service]
+Name=org.freedesktop.impl.portal.desktop.porta
+Exec=/home/christopher/dev/xdg-desktop-portal-porta/target/debug/xdg-desktop-portal-porta
+SystemdService=xdg-desktop-portal-porta.service

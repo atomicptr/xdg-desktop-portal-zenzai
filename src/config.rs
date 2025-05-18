@@ -2,9 +2,7 @@ use std::{env, fs, path::PathBuf};
 
 use serde::Deserialize;
 
-use crate::portals::settings::config::SettingsConf;
-
-const CONFIG_APP_NAME: &'static str = "xdg-desktop-portal-porta";
+use crate::{constants::CONFIG_APP_NAME, portals::settings::config::SettingsConf};
 
 #[derive(Debug, Default, Deserialize)]
 pub struct Config {
