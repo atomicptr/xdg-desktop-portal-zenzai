@@ -12,11 +12,11 @@ mod portals;
 #[tokio::main]
 async fn main() -> Result<()> {
     unsafe {
-        env::set_var("RUST_LOG", "xdg-desktop-portal-porta=info");
+        env::set_var("RUST_LOG", "xdg-desktop-portal-zenzai=info");
     }
 
     tracing_subscriber::fmt().init();
-    tracing::info!("Porta start");
+    tracing::info!("xdg-desktop-portal-zenzai started!");
 
     let config = match Config::from_xdg_dirs() {
         Ok(config) => config,

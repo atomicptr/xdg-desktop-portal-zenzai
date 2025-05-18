@@ -1,5 +1,5 @@
 [package]
-name = "xdg-desktop-portal-porta"
+name = "xdg-desktop-portal-zenzai"
 description = "A collection of several xdg-desktop-portal implementations to serve more lightweight wayland compositors like Hyprland"
 version = "0.1.0"
 edition = "2024"

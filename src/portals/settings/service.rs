@@ -25,7 +25,7 @@ impl SettingsService {
 
         if namespace != NAMESPACE {
             return Err(fdo::Error::Failed(format!(
-                "porta: unknown namespace {}",
+                "zenzai: unknown namespace {}",
                 namespace
             )));
         }
@@ -41,7 +41,7 @@ impl SettingsService {
             },
             "accent-color" => match &self.config.accent_color {
                 None => Err(fdo::Error::Failed(format!(
-                    "porta: no accent color defined"
+                    "zenzai: no accent color defined"
                 ))),
                 Some(AccentColor { r, g, b }) => Ok((
                     Value::F64(r.clone().into()),
@@ -51,7 +51,7 @@ impl SettingsService {
                     .into()),
             },
             key => Err(fdo::Error::Failed(format!(
-                "porta: unsupported key: {}.{}",
+                "zenzai: unsupported key: {}.{}",
                 namespace, key
             ))),
         }

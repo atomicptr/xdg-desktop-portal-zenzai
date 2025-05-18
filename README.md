@@ -1,4 +1,4 @@
-# xdg-desktop-portal-porta
+# xdg-desktop-portal-zenzai
 
 A collection of several xdg-desktop-portal implementations to serve more lightweight wayland compositors like [Hyprland](https://hyprland.org/)
 

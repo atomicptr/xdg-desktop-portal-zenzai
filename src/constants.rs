@@ -1,2 +1,2 @@
-pub const DBUS_NAME: &'static str = "org.freedesktop.impl.portal.desktop.porta";
-pub const CONFIG_APP_NAME: &'static str = "xdg-desktop-portal-porta";
+pub const DBUS_NAME: &'static str = "org.freedesktop.impl.portal.desktop.zenzai";
+pub const CONFIG_APP_NAME: &'static str = "xdg-desktop-portal-zenzai";

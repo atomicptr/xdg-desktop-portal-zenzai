@@ -1052,7 +1052,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "xdg-desktop-portal-porta"
+name = "xdg-desktop-portal-zenzai"
 version = "0.1.0"
 dependencies = [
  "serde",
