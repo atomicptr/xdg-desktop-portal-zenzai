@@ -6,6 +6,13 @@ A collection of several xdg-desktop-portal implementations to serve more lightwe
 
 - [Settings](https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.impl.portal.Settings.html) - control color scheme, accent color and appearance
 
+## Install
+
+Available via:
+
+- nix: [atomicptr/nix](https://github.com/atomicptr/nix) via **pkgs.atomicptr.xdg-desktop-portal-zenzai**
+- cargo: [xdg-desktop-portal-zenzai](https://crates.io/crates/xdg-desktop-portal-zenzai) (use meson to properly install everything)
+
 ## How to use it
 
 To use zenzai you need to create `~/.config/xdg-desktop-portal/CURRENT_DESKTOP_NAME-portals.conf`, for example, if you use Hyprland, you need to name it `Hyprland-portals.conf`.
