@@ -15,7 +15,12 @@ pub struct SettingsService {
 
 #[interface(name = "org.freedesktop.impl.portal.Settings")]
 impl SettingsService {
-    // read is deprecated
+    #[zbus(property, name = "version")]
+    async fn version(&self) -> u32 {
+        0
+    }
+
+    // read is deprecated, not yet sure how .ReadOne is different so we just call it as-is
     async fn read(&self, namespace: &str, key: &str) -> fdo::Result<Value<'_>> {
         self.read_one(namespace, key).await
     }
@@ -67,16 +72,20 @@ impl SettingsService {
                 continue;
             }
 
-            if let Some(color_scheme) = &self.config.color_scheme {
-                result.insert("color-scheme", Value::U32(color_scheme.clone().into()));
-            }
+            let mut nsmap = HashMap::new();
 
-            if let Some(contrast) = &self.config.contrast {
-                result.insert("contrast", Value::U32(contrast.clone().into()));
-            }
+            let color_scheme = self
+                .config
+                .color_scheme
+                .clone()
+                .unwrap_or(ColorScheme::default());
+            nsmap.insert("color-scheme", Value::U32(color_scheme.clone().into()));
+
+            let contrast = self.config.contrast.clone().unwrap_or(Contrast::default());
+            nsmap.insert("contrast", Value::U32(contrast.clone().into()));
 
             if let Some(AccentColor { r, g, b }) = &self.config.accent_color {
-                result.insert(
+                nsmap.insert(
                     "accent-color",
                     (
                         Value::F64(r.clone().into()),
@@ -86,6 +95,8 @@ impl SettingsService {
                         .into(),
                 );
             }
+
+            result.insert(NAMESPACE, nsmap);
         }
 
         Ok(result.into())
