@@ -2,7 +2,7 @@ use std::{env, future::pending};
 
 use config::{Config, ConfigErr};
 use constants::{APP_VERSION, DBUS_NAME};
-use portals::settings::service::SettingsService;
+use portals::{secret::service::SecretService, settings::service::SettingsService};
 use zbus::{Result, conn::Builder};
 
 mod config;
@@ -44,6 +44,15 @@ async fn main() -> Result<()> {
                 "/org/freedesktop/portal/desktop",
                 SettingsService { config },
             )?;
+        }
+    }
+
+    if let Some(config) = config.secret {
+        if config.enabled {
+            any_enabled = true;
+
+            tracing::info!("portal: org.freedesktop.portal.Secret enabled!");
+            conn = conn.serve_at("/org/freedesktop/portal/desktop", SecretService)?;
         }
     }
 

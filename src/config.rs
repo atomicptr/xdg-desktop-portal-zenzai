@@ -2,11 +2,15 @@ use std::{env, fs, path::PathBuf};
 
 use serde::Deserialize;
 
-use crate::{constants::CONFIG_APP_NAME, portals::settings::config::SettingsConfig};
+use crate::{
+    constants::CONFIG_APP_NAME,
+    portals::{secret::config::SecretConfig, settings::config::SettingsConfig},
+};
 
 #[derive(Debug, Default, Deserialize)]
 pub struct Config {
     pub settings: Option<SettingsConfig>,
+    pub secret: Option<SecretConfig>,
 }
 
 pub enum ConfigErr {
