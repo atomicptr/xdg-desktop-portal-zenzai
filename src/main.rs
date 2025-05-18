@@ -24,10 +24,10 @@ async fn main() -> Result<()> {
             panic!("Could not find config file");
         }
         Err(ConfigErr::IOError(err)) => {
-            panic!("IO Error: {:?}", err);
+            panic!("Config IO Error: {:?}", err);
         }
         Err(ConfigErr::ParseError(err)) => {
-            panic!("Parse Error: {:?}", err.message());
+            panic!("Config Parse Error: {:?}", err.message());
         }
     };
 
@@ -39,7 +39,7 @@ async fn main() -> Result<()> {
         if config.enabled {
             any_enabled = true;
 
-            tracing::info!("Settings portal enabled!");
+            tracing::info!("portal: org.freedesktop.portal.Settings enabled!");
             conn = conn.serve_at(
                 "/org/freedesktop/portal/desktop",
                 SettingsService { config },

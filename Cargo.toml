@@ -1,11 +1,12 @@
 [package]
 name = "xdg-desktop-portal-zenzai"
 description = "A collection of several xdg-desktop-portal implementations to serve more lightweight wayland compositors like Hyprland"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 license = "GPL-3.0-or-later"
 
 [dependencies]
+csscolorparser = "0.7.1"
 serde = { version = "1.0.219", features = ["derive"] }
 tokio = { version = "1.45.0", features = ["full"] }
 toml = "0.8.22"

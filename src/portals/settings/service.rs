@@ -3,9 +3,9 @@ use std::collections::HashMap;
 use zbus::{fdo, interface, object_server::SignalEmitter};
 use zvariant::Value;
 
-use crate::portals::settings::config::{AccentColor, Contrast};
+use crate::portals::settings::config::Contrast;
 
-use super::config::{ColorScheme, SettingsConf};
+use super::config::{ColorScheme, SettingsConfig};
 
 const NAMESPACE: &'static str = "org.freedesktop.appearance";
 const KEY_COLOR_SCHEME: &'static str = "color-scheme";
@@ -13,7 +13,7 @@ const KEY_CONTRAST: &'static str = "contrast";
 const KEY_ACCENT_COLOR: &'static str = "accent-color";
 
 pub struct SettingsService {
-    pub config: SettingsConf,
+    pub config: SettingsConfig,
 }
 
 #[interface(name = "org.freedesktop.impl.portal.Settings")]
@@ -24,7 +24,7 @@ impl SettingsService {
     }
 
     async fn read(&self, namespace: &str, key: &str) -> fdo::Result<Value<'_>> {
-        tracing::info!("read_one: {}.{}", namespace, key);
+        tracing::debug!("request) read: {}.{}", namespace, key);
 
         if namespace != NAMESPACE {
             return Err(fdo::Error::Failed(format!(
@@ -33,35 +33,38 @@ impl SettingsService {
             )));
         }
 
-        match key {
-            KEY_COLOR_SCHEME => match &self.config.color_scheme {
-                None => Ok(Value::U32(ColorScheme::default().into())),
-                Some(color_scheme) => Ok(Value::U32(color_scheme.clone().into())),
-            },
-            KEY_CONTRAST => match &self.config.contrast {
-                None => Ok(Value::U32(Contrast::default().into())),
-                Some(contrast) => Ok(Value::U32(contrast.clone().into())),
-            },
-            KEY_ACCENT_COLOR => match &self.config.accent_color {
-                None => Err(fdo::Error::Failed(format!(
-                    "zenzai: no accent color defined"
-                ))),
-                Some(AccentColor { r, g, b }) => Ok((
-                    Value::F64(r.clone().into()),
-                    Value::F64(g.clone().into()),
-                    Value::F64(b.clone().into()),
-                )
-                    .into()),
-            },
-            key => Err(fdo::Error::Failed(format!(
-                "zenzai: unsupported key: {}.{}",
+        let value = match key {
+            KEY_COLOR_SCHEME => Ok(Value::U32(
+                self.config.color_scheme.clone().unwrap_or_default().into(),
+            )),
+            KEY_CONTRAST => Ok(Value::U32(
+                self.config.contrast.clone().unwrap_or_default().into(),
+            )),
+            KEY_ACCENT_COLOR => self
+                .config
+                .accent_color
+                .clone()
+                .map(|color| color.to_color_tuple())
+                .map(|color| match color {
+                    None => Err(fdo::Error::Failed(
+                        "zenzai: could not parse color".to_string(),
+                    )),
+                    Some(color) => Ok(color.into()),
+                })
+                .unwrap(),
+            _ => Err(fdo::Error::Failed(format!(
+                "zenzai: unknown key: {}.{}",
                 namespace, key
             ))),
-        }
+        };
+
+        tracing::debug!("respone) read: {}.{} = {:?}", namespace, key, value);
+
+        value
     }
 
     async fn read_all(&self, namespaces: Vec<&str>) -> fdo::Result<Value<'_>> {
-        tracing::info!("read_all: {:?}", namespaces);
+        tracing::debug!("read_all: {:?}", namespaces);
 
         if !namespaces.contains(&NAMESPACE) {
             return Err(fdo::Error::Failed(format!(
@@ -84,16 +87,10 @@ impl SettingsService {
         let contrast = self.config.contrast.clone().unwrap_or(Contrast::default());
         nsmap.insert(KEY_CONTRAST, Value::U32(contrast.clone().into()));
 
-        if let Some(AccentColor { r, g, b }) = &self.config.accent_color {
-            nsmap.insert(
-                KEY_ACCENT_COLOR,
-                (
-                    Value::F64(r.clone().into()),
-                    Value::F64(g.clone().into()),
-                    Value::F64(b.clone().into()),
-                )
-                    .into(),
-            );
+        if let Some(color) = &self.config.accent_color {
+            if let Some(color) = color.to_color_tuple() {
+                nsmap.insert(KEY_ACCENT_COLOR, color.into());
+            }
         }
 
         result.insert(NAMESPACE, nsmap);

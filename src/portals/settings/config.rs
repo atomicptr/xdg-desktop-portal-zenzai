@@ -1,4 +1,4 @@
-use serde::{Deserialize, Deserializer};
+use serde::Deserialize;
 
 #[derive(Debug, Deserialize, Default, Clone)]
 #[serde(rename_all = "kebab-case")]
@@ -19,15 +19,38 @@ impl Into<u32> for ColorScheme {
     }
 }
 
-// TODO: allow specifying accent color as hex or 0-255 segments
-#[derive(Debug, Deserialize, Default, Clone)]
-pub struct AccentColor {
-    #[serde(deserialize_with = "deserialize_rgb")]
-    pub r: f32,
-    #[serde(deserialize_with = "deserialize_rgb")]
-    pub g: f32,
-    #[serde(deserialize_with = "deserialize_rgb")]
-    pub b: f32,
+#[derive(Debug, Deserialize, Clone)]
+#[serde(untagged)]
+pub enum AccentColor {
+    ColorString(String),
+    RGB(ColorRGB),
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct ColorRGB {
+    r: u8,
+    g: u8,
+    b: u8,
+}
+
+impl AccentColor {
+    pub fn to_color_tuple(&self) -> Option<(f64, f64, f64)> {
+        match self {
+            AccentColor::ColorString(str) => {
+                if let Ok(color) = csscolorparser::parse(str) {
+                    let [r, g, b, _] = color.to_array();
+                    Some((r.into(), g.into(), b.into()))
+                } else {
+                    None
+                }
+            }
+            AccentColor::RGB(ColorRGB { r, g, b }) => Some((
+                (r.clone() as f64) / 255.0,
+                (g.clone() as f64) / 255.0,
+                (b.clone() as f64) / 255.0,
+            )),
+        }
+    }
 }
 
 #[derive(Debug, Deserialize, Default, Clone)]
@@ -49,25 +72,9 @@ impl Into<u32> for Contrast {
 
 #[derive(Debug, Deserialize, Default)]
 #[serde(rename_all = "kebab-case")]
-pub struct SettingsConf {
+pub struct SettingsConfig {
     pub enabled: bool,
     pub color_scheme: Option<ColorScheme>,
     pub accent_color: Option<AccentColor>,
     pub contrast: Option<Contrast>,
-}
-
-fn deserialize_rgb<'de, D>(deserializer: D) -> Result<f32, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let value = f32::deserialize(deserializer)?;
-
-    if value >= 0.0 && value <= 1.0 {
-        return Ok(value);
-    }
-
-    Err(serde::de::Error::custom(format!(
-        "RGB component {} is out of range 0.0..1.0",
-        value
-    )))
 }
