@@ -1,7 +1,7 @@
 use std::{env, future::pending};
 
 use config::{Config, ConfigErr};
-use constants::DBUS_NAME;
+use constants::{APP_VERSION, DBUS_NAME};
 use portals::settings::service::SettingsService;
 use zbus::{Result, conn::Builder};
 
@@ -16,7 +16,7 @@ async fn main() -> Result<()> {
     }
 
     tracing_subscriber::fmt().init();
-    tracing::info!("xdg-desktop-portal-zenzai started!");
+    tracing::info!("xdg-desktop-portal-zenzai v{} started!", APP_VERSION);
 
     let config = match Config::from_xdg_dirs() {
         Ok(config) => config,
