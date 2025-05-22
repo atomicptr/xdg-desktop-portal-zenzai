@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use zbus::{fdo, interface};
 use zvariant::{OwnedObjectPath, Value};
+
 pub struct SecretService;
 
 #[interface(name = "org.freedesktop.impl.portal.Secret")]

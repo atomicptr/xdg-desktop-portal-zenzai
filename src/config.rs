@@ -4,12 +4,16 @@ use serde::Deserialize;
 
 use crate::{
     constants::CONFIG_APP_NAME,
-    portals::{secret::config::SecretConfig, settings::config::SettingsConfig},
+    portals::{
+        appchooser::config::AppChooserConfig, secret::config::SecretConfig,
+        settings::config::SettingsConfig,
+    },
 };
 
 #[derive(Debug, Default, Deserialize)]
 pub struct Config {
     pub settings: Option<SettingsConfig>,
+    pub appchooser: Option<AppChooserConfig>,
     pub secret: Option<SecretConfig>,
 }
 

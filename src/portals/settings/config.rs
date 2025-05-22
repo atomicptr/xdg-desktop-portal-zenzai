@@ -1,5 +1,14 @@
 use serde::Deserialize;
 
+#[derive(Debug, Deserialize, Default)]
+#[serde(rename_all = "kebab-case")]
+pub struct SettingsConfig {
+    pub enabled: bool,
+    pub color_scheme: Option<ColorScheme>,
+    pub accent_color: Option<AccentColor>,
+    pub contrast: Option<Contrast>,
+}
+
 #[derive(Debug, Deserialize, Default, Clone)]
 #[serde(rename_all = "kebab-case")]
 pub enum ColorScheme {
@@ -68,13 +77,4 @@ impl Into<u32> for Contrast {
             Self::High => 1,
         }
     }
-}
-
-#[derive(Debug, Deserialize, Default)]
-#[serde(rename_all = "kebab-case")]
-pub struct SettingsConfig {
-    pub enabled: bool,
-    pub color_scheme: Option<ColorScheme>,
-    pub accent_color: Option<AccentColor>,
-    pub contrast: Option<Contrast>,
 }
