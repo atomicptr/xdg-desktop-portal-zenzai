@@ -17,6 +17,7 @@ impl SecretService {
         options: HashMap<&str, Value<'_>>,
     ) -> fdo::Result<OwnedObjectPath> {
         tracing::info!("retrieve secret: {} {:?}", handle, options);
+        tracing::error!("not yet implemented");
         Err(fdo::Error::Failed("not yet implemented".to_string()))
     }
 }
