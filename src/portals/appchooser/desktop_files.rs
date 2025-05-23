@@ -115,7 +115,8 @@ pub fn find_desktop_entry(name: &str) -> Option<DesktopEntry> {
         command: exec_parts.first().unwrap().to_string(),
         arguments: Some(
             rest.iter()
-                .filter(|s| !s.starts_with("@@") && !s.starts_with("%"))
+                .map(|s| s.trim_matches('"'))
+                .filter(|s| !s.starts_with("@@") && !s.starts_with('%'))
                 .map(|s| s.to_string())
                 .collect(),
         ),

@@ -19,7 +19,7 @@ pub enum RunnerType {
     Dmenu(Command),
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 #[serde(untagged)]
 pub enum DefaultMapping {
     Command(Command),

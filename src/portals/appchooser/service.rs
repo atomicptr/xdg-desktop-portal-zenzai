@@ -12,6 +12,7 @@ use crate::{
         run_command::{RunCommandError, run_command, run_picker_command},
     },
     terminal::Terminal,
+    utils::hashmap::wildcard_get,
 };
 
 use super::config::{AppChooserConfig, Command, DefaultMapping, RunnerType};
@@ -80,17 +81,20 @@ impl AppChooserService {
         // TODO: support content_type wildcards
 
         // if we have a default mapping set for the content type we use that...
-        if let Some(option) = self.config.defaults.get(content_type) {
+        if let Some(option) = wildcard_get(&self.config.defaults, content_type.to_string()) {
             tracing::info!("Selected mapping: {:?}", option);
 
             let res = match option {
-                DefaultMapping::Command(cmd) => {
+                DefaultMapping::Command(ref cmd) => {
                     let cmd = cmd.with_input_file(uri);
                     Ok(cmd.clone())
                 }
-                DefaultMapping::CommandChoice(cmds) => {
-                    let cmds_str: Vec<String> =
-                        cmds.into_iter().map(|c| c.command.clone()).collect();
+                DefaultMapping::CommandChoice(ref cmds) => {
+                    let cmds_str: Vec<String> = cmds
+                        .clone()
+                        .into_iter()
+                        .map(|c| c.command.clone())
+                        .collect();
 
                     tracing::info!("{:?}", cmds_str);
 
@@ -103,13 +107,13 @@ impl AppChooserService {
                         })
                         .map(|cmd| cmd.with_input_file(uri))
                 }
-                DefaultMapping::DesktopFile(file) => find_desktop_entry(file)
+                DefaultMapping::DesktopFile(ref file) => find_desktop_entry(&file)
                     .map(|entry| Ok(entry.command(&self.terminal).with_input_file(uri)))
                     .unwrap_or(Err(RunCommandError::Other(format!(
                         "Could not find desktop entry for {:?}",
                         file
                     )))),
-                DefaultMapping::DesktopFileChoice(files) => {
+                DefaultMapping::DesktopFileChoice(ref files) => {
                     let desktop_entries: Vec<DesktopEntry> = files
                         .iter()
                         .filter_map(|name| find_desktop_entry(name))

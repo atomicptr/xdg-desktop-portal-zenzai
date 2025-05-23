@@ -13,6 +13,7 @@ mod config;
 mod constants;
 mod portals;
 mod terminal;
+mod utils;
 
 #[tokio::main]
 async fn main() -> Result<()> {
