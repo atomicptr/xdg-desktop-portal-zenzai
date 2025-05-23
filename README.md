@@ -4,8 +4,8 @@ A collection of several xdg-desktop-portal implementations to serve more lightwe
 
 ## Supported Portals
 
-- [Settings](https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.impl.portal.Settings.html) - control color scheme, accent color and appearance
 - [App Chooser](https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.impl.portal.AppChooser.html) - choose an application
+- [Settings](https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.impl.portal.Settings.html) - control color scheme, accent color and appearance
 
 ## Install
 
@@ -22,12 +22,7 @@ Edit `$XDG_CONFIG_HOME/xdg-desktop-portal-zenzai/config.toml`
 # define your terminal here, this will be used by some services (AppChooser only right now)
 terminal = "ghostty"
 
-# configurations for the settings portal
-[settings]
-enabled = true # portals have to be explicitly enabled
-color-scheme = "dark" # set color scheme to dark/light
-accent-color = "#b4befe" # define an accent color
-
+### App Chooser Portal Config
 [appchooser]
 enabled = true
 
@@ -41,6 +36,12 @@ arguments = ["--dmenu"]
 "text/plain" = { command = "ghostty", arguments = ["-e", "nvim"] } # run arbitrary commands
 "image/jpeg" = "io.github.woelper.Oculante" # or execute desktop files
 "image/webp" = ["io.github.woelper.Oculante.desktop", "com.brave.Browser.desktop"] # you can also always pick from a group
+
+### Settings Portal Config
+[settings]
+enabled = true # portals have to be explicitly enabled
+color-scheme = "dark" # set color scheme to dark/light
+accent-color = "#b4befe" # define an accent color
 ```
 
 ## How to use it
@@ -50,8 +51,8 @@ To use zenzai you need to create `~/.config/xdg-desktop-portal/CURRENT_DESKTOP_N
 ```
 [preferred]
 default=hyprland;zenzai;gtk
-org.freedesktop.impl.portal.Settings=zenzai
 org.freedesktop.impl.portal.AppChooser=zenzai
+org.freedesktop.impl.portal.Settings=zenzai
 ```
 
 ## Motivation
