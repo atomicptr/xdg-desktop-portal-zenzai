@@ -14,7 +14,7 @@ use crate::{
     terminal::Terminal,
 };
 
-use super::config::{AppChooserConfig, DefaultMapping, RunnerType};
+use super::config::{AppChooserConfig, Command, DefaultMapping, RunnerType};
 
 pub struct AppChooserService {
     pub terminal: Terminal,
@@ -39,7 +39,7 @@ impl AppChooserService {
 
         let runner_type = runner_type.as_ref().unwrap();
 
-        tracing::warn!(
+        tracing::debug!(
             "ChooseApplication called with handle: {:?}, app_id: {:?}, parent_window: {}, choices: {:?}, options: {:?}",
             handle,
             app_id,
@@ -71,6 +71,9 @@ impl AppChooserService {
         let runner_cmd = match &runner_type {
             RunnerType::Dmenu(cmd) => cmd,
         };
+
+        let new_token =
+            activation_token.unwrap_or_else(|| format!("token-{}", rand::random::<u32>()));
 
         tracing::info!("URI: {}, Content-Type: {}", uri, content_type);
 
@@ -109,9 +112,7 @@ impl AppChooserService {
                 DefaultMapping::DesktopFileChoice(files) => {
                     let desktop_entries: Vec<DesktopEntry> = files
                         .iter()
-                        .map(|name| find_desktop_entry(name))
-                        .filter(|entry| entry.is_some())
-                        .map(|entry| entry.unwrap())
+                        .filter_map(|name| find_desktop_entry(name))
                         .collect();
 
                     let options = desktop_entries
@@ -141,22 +142,13 @@ impl AppChooserService {
 
             let _ = run_command(&res).await?;
 
-            let new_token =
-                activation_token.unwrap_or_else(|| format!("token-{}", rand::random::<u32>()));
-
-            let mut m = HashMap::new();
-
-            m.insert(
-                "app_id".to_string(),
-                zvariant::Str::from(res.command).into(),
-            );
-            m.insert(
-                "activation_token".to_string(),
-                zvariant::Str::from(new_token).into(),
-            );
-            return Ok((0, m));
+            return cmd_ok(&res, &new_token);
         } else {
-            tracing::warn!("Nothing found in defaults: {:?}", self.config.defaults);
+            tracing::warn!(
+                "No default found for {:?}. Defaults: {:?}",
+                content_type,
+                self.config.defaults
+            );
         }
 
         // no defaults set so lets evaluate user choices
@@ -168,9 +160,7 @@ impl AppChooserService {
 
         let desktop_entries: Vec<DesktopEntry> = choices
             .iter()
-            .map(|name| find_desktop_entry(name))
-            .filter(|entry| entry.is_some())
-            .map(|entry| entry.unwrap())
+            .filter_map(|name| find_desktop_entry(name))
             .collect();
 
         let options = desktop_entries
@@ -202,25 +192,26 @@ impl AppChooserService {
             return Err(fdo::Error::Failed(err));
         }
 
-        // TODO: refactor result handling
         let res = res.unwrap();
 
         let _ = run_command(&res).await?;
 
-        let new_token =
-            activation_token.unwrap_or_else(|| format!("token-{}", rand::random::<u32>()));
-
-        let mut m = HashMap::new();
-
-        m.insert(
-            "app_id".to_string(),
-            zvariant::Str::from(res.command).into(),
-        );
-        m.insert(
-            "activation_token".to_string(),
-            zvariant::Str::from(new_token).into(),
-        );
-
-        Ok((0, m))
+        cmd_ok(&res, &new_token)
     }
+}
+
+fn cmd_ok(command: &Command, token: &String) -> fdo::Result<(u32, HashMap<String, OwnedValue>)> {
+    let mut m = HashMap::new();
+
+    m.insert(
+        "app_id".to_string(),
+        zvariant::Str::from(&command.command).into(),
+    );
+
+    m.insert(
+        "activation_token".to_string(),
+        zvariant::Str::from(token).into(),
+    );
+
+    Ok((0, m))
 }

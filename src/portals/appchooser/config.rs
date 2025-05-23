@@ -58,7 +58,7 @@ impl Command {
     }
 
     pub fn with_input_file(&self, file: String) -> Command {
-        // TODO: add support for other ways to supply file paths
+        // TODO #8: add support for other ways to supply file paths
         let mut args = self.arguments.clone().unwrap_or_default();
         args.push(file);
 

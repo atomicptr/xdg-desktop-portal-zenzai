@@ -24,31 +24,39 @@ impl DesktopEntry {
 }
 
 fn desktop_files() -> Vec<PathBuf> {
-    env::var("XDG_DATA_DIRS")
-        .map(|v| {
-            v.split(":")
-                .map(|s| PathBuf::from(s))
-                .map(|p| p.join("applications"))
-                .filter(|d| d.exists() && d.is_dir())
-                .flat_map(|dir| {
-                    fs::read_dir(dir)
-                        .map(|dir| {
-                            dir.into_iter()
-                                .filter(|f| f.is_ok())
-                                .map(|f| f.unwrap().path())
-                                .filter(|s| {
-                                    s.file_name()
-                                        .map(|n| n.to_str().unwrap_or(""))
-                                        .map(|n| n.ends_with(".desktop"))
-                                        .unwrap_or(false)
-                                })
-                                .collect()
-                        })
-                        .unwrap_or(Vec::new())
-                })
-                .collect()
+    let xdg_data_dirs =
+        env::var("XDG_DATA_DIRS").unwrap_or("/usr/local/share:/usr/share".to_string());
+
+    xdg_data_dirs
+        .split(':')
+        .filter_map(|s| {
+            let applications_dir = PathBuf::from(s).join("applications");
+
+            if applications_dir.is_dir() {
+                Some(applications_dir)
+            } else {
+                None
+            }
         })
-        .unwrap_or(Vec::new())
+        .flat_map(|dir| {
+            fs::read_dir(&dir).into_iter().flat_map(|read_dir_result| {
+                read_dir_result
+                    .into_iter()
+                    .filter_map(|entry_result| entry_result.ok())
+                    .filter_map(|entry| {
+                        let path = entry.path();
+                        if path.is_file() {
+                            path.file_name()
+                                .and_then(|name| name.to_str())
+                                .filter(|name_str| name_str.ends_with(".desktop"))
+                                .map(|_| path.clone())
+                        } else {
+                            None
+                        }
+                    })
+            })
+        })
+        .collect()
 }
 
 pub fn find_desktop_entry(name: &str) -> Option<DesktopEntry> {
