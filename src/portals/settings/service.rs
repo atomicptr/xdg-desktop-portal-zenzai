@@ -1,16 +1,14 @@
 use std::collections::HashMap;
 
 use zbus::{fdo, interface, object_server::SignalEmitter};
-use zvariant::Value;
+use zvariant::{OwnedValue, Value};
 
-use crate::portals::settings::config::Contrast;
+use crate::portals::settings::config::{Contrast, SettingsMapValue};
+use crate::utils::hashmap::wildcard_get_all;
 
 use super::config::{ColorScheme, SettingsConfig};
 
-const NAMESPACE: &'static str = "org.freedesktop.appearance";
-const KEY_COLOR_SCHEME: &'static str = "color-scheme";
-const KEY_CONTRAST: &'static str = "contrast";
-const KEY_ACCENT_COLOR: &'static str = "accent-color";
+use super::constants::{KEY_ACCENT_COLOR, KEY_COLOR_SCHEME, KEY_CONTRAST, NAMESPACE};
 
 pub struct SettingsService {
     pub config: SettingsConfig,
@@ -24,7 +22,7 @@ impl SettingsService {
     }
 
     async fn read(&self, namespace: &str, key: &str) -> fdo::Result<Value<'_>> {
-        tracing::debug!("request) read: {}.{}", namespace, key);
+        tracing::debug!("Read: {}.{}", namespace, key);
 
         if namespace != NAMESPACE {
             return Err(fdo::Error::Failed(format!(
@@ -63,17 +61,29 @@ impl SettingsService {
         value
     }
 
-    async fn read_all(&self, namespaces: Vec<&str>) -> fdo::Result<Value<'_>> {
-        tracing::debug!("read_all: {:?}", namespaces);
+    async fn read_all(&self, namespaces: Vec<&str>) -> fdo::Result<OwnedValue> {
+        tracing::debug!("ReadAll: {:?}", namespaces);
 
-        if !namespaces.contains(&NAMESPACE) {
-            return Err(fdo::Error::Failed(format!(
-                "zenzai: unknown namespaces {:?}",
-                namespaces
-            )));
+        // build the data map
+        let mut m = HashMap::new();
+
+        for (ns, map) in self.config.dict.clone().unwrap_or_default() {
+            let mut nsmap = HashMap::new();
+
+            for (k, v) in map {
+                nsmap.insert(
+                    k.clone(),
+                    match v {
+                        SettingsMapValue::String(str) => zvariant::Value::Str(str.into()),
+                        SettingsMapValue::Int(int) => zvariant::Value::I64(int.clone()),
+                        SettingsMapValue::Bool(b) => zvariant::Value::Bool(b.clone()),
+                        SettingsMapValue::Float(f) => zvariant::Value::F64(f.clone()),
+                    },
+                );
+            }
+
+            m.insert(ns.clone(), nsmap);
         }
-
-        let mut result = HashMap::new();
 
         let mut nsmap = HashMap::new();
 
@@ -82,20 +92,42 @@ impl SettingsService {
             .color_scheme
             .clone()
             .unwrap_or(ColorScheme::default());
-        nsmap.insert(KEY_COLOR_SCHEME, Value::U32(color_scheme.clone().into()));
+        nsmap.insert(
+            KEY_COLOR_SCHEME.to_string(),
+            Value::U32(color_scheme.clone().into()),
+        );
 
         let contrast = self.config.contrast.clone().unwrap_or(Contrast::default());
-        nsmap.insert(KEY_CONTRAST, Value::U32(contrast.clone().into()));
+        nsmap.insert(
+            KEY_CONTRAST.to_string(),
+            Value::U32(contrast.clone().into()),
+        );
 
         if let Some(color) = &self.config.accent_color {
             if let Some(color) = color.to_color_tuple() {
-                nsmap.insert(KEY_ACCENT_COLOR, color.into());
+                nsmap.insert(KEY_ACCENT_COLOR.to_string(), color.into());
             }
         }
 
-        result.insert(NAMESPACE, nsmap);
+        m.insert(NAMESPACE.to_string(), nsmap);
 
-        Ok(result.into())
+        // now lets query it
+
+        // no namespaces set == get all data
+        if namespaces.is_empty() {
+            return Ok(m.into());
+        }
+
+        // execute the actual query
+        let mut resmap = HashMap::new();
+
+        for ns in namespaces {
+            for (k, v) in wildcard_get_all(&m, ns.to_string()) {
+                resmap.insert(k, v);
+            }
+        }
+
+        Ok(resmap.into())
     }
 
     #[zbus(signal)]

@@ -81,7 +81,7 @@ impl AppChooserService {
         // TODO: support content_type wildcards
 
         // if we have a default mapping set for the content type we use that...
-        if let Some(option) = wildcard_get(&self.config.defaults, content_type.to_string()) {
+        if let Some((_, option)) = wildcard_get(&self.config.defaults, content_type.to_string()) {
             tracing::info!("Selected mapping: {:?}", option);
 
             let res = match option {

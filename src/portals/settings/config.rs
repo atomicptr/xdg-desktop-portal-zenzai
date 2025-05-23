@@ -1,4 +1,8 @@
+use std::collections::HashMap;
+
 use serde::Deserialize;
+
+pub type SettingsMap = HashMap<String, HashMap<String, SettingsMapValue>>;
 
 #[derive(Debug, Deserialize, Default)]
 #[serde(rename_all = "kebab-case")]
@@ -7,6 +11,7 @@ pub struct SettingsConfig {
     pub color_scheme: Option<ColorScheme>,
     pub accent_color: Option<AccentColor>,
     pub contrast: Option<Contrast>,
+    pub dict: Option<SettingsMap>,
 }
 
 #[derive(Debug, Deserialize, Default, Clone)]
@@ -76,5 +81,37 @@ impl Into<u32> for Contrast {
             Self::NoPreference => 0,
             Self::High => 1,
         }
+    }
+}
+
+#[derive(Debug, Deserialize, Clone)]
+#[serde(untagged)]
+pub enum SettingsMapValue {
+    String(String),
+    Int(i64),
+    Bool(bool),
+    Float(f64),
+}
+
+impl From<String> for SettingsMapValue {
+    fn from(value: String) -> Self {
+        SettingsMapValue::String(value)
+    }
+}
+impl From<i64> for SettingsMapValue {
+    fn from(value: i64) -> Self {
+        SettingsMapValue::Int(value)
+    }
+}
+
+impl From<bool> for SettingsMapValue {
+    fn from(value: bool) -> Self {
+        SettingsMapValue::Bool(value)
+    }
+}
+
+impl From<f64> for SettingsMapValue {
+    fn from(value: f64) -> Self {
+        SettingsMapValue::Float(value)
     }
 }
