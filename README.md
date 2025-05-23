@@ -19,6 +19,9 @@ Available via:
 Edit `$XDG_CONFIG_HOME/xdg-desktop-portal-zenzai/config.toml`
 
 ```toml
+# define your terminal here, this will be used by some services (AppChooser only right now)
+terminal = "ghostty"
+
 # configurations for the settings portal
 [settings]
 enabled = true # portals have to be explicitly enabled
@@ -29,16 +32,15 @@ accent-color = "#b4befe" # define an accent color
 enabled = true
 
 [appchooser.runner]
-type = "dmenu"
+type = "dmenu" # currently only dmenu style API is supported (list of files into stdin)
 command = "wofi"
 arguments = ["--dmenu"]
 
+# list of content types -> app associations
 [appchooser.defaults]
-"text/plain" = { command = "ghostty", arguments = ["-e", "nvim"] }
-"image/jpeg" = "io.github.woelper.Oculante"
-"image/webp" = "io.github.woelper.Oculante"
-"image/png" = "io.github.woelper.Oculante"
-"image/gif" = "io.github.woelper.Oculante"
+"text/plain" = { command = "ghostty", arguments = ["-e", "nvim"] } # run arbitrary commands
+"image/jpeg" = "io.github.woelper.Oculante" # or execute desktop files
+"image/webp" = ["io.github.woelper.Oculante.desktop", "com.brave.Browser.desktop"] # you can also always pick from a group
 ```
 
 ## How to use it
@@ -48,7 +50,8 @@ To use zenzai you need to create `~/.config/xdg-desktop-portal/CURRENT_DESKTOP_N
 ```
 [preferred]
 default=hyprland;zenzai;gtk
-org.freedesktop.impl.portal.Settings=zenzai;gtk
+org.freedesktop.impl.portal.Settings=zenzai
+org.freedesktop.impl.portal.AppChooser=zenzai
 ```
 
 ## Motivation
