@@ -8,10 +8,12 @@ use crate::{
         appchooser::config::AppChooserConfig, secret::config::SecretConfig,
         settings::config::SettingsConfig,
     },
+    terminal::Terminal,
 };
 
 #[derive(Debug, Default, Deserialize)]
 pub struct Config {
+    pub terminal: Option<Terminal>,
     pub settings: Option<SettingsConfig>,
     pub appchooser: Option<AppChooserConfig>,
     pub secret: Option<SecretConfig>,

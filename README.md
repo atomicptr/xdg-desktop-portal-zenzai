@@ -5,6 +5,7 @@ A collection of several xdg-desktop-portal implementations to serve more lightwe
 ## Supported Portals
 
 - [Settings](https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.impl.portal.Settings.html) - control color scheme, accent color and appearance
+- [App Chooser](https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.impl.portal.AppChooser.html) - choose an application
 
 ## Install
 
@@ -23,6 +24,21 @@ Edit `$XDG_CONFIG_HOME/xdg-desktop-portal-zenzai/config.toml`
 enabled = true # portals have to be explicitly enabled
 color-scheme = "dark" # set color scheme to dark/light
 accent-color = "#b4befe" # define an accent color
+
+[appchooser]
+enabled = true
+
+[appchooser.runner]
+type = "dmenu"
+command = "wofi"
+arguments = ["--dmenu"]
+
+[appchooser.defaults]
+"text/plain" = { command = "ghostty", arguments = ["-e", "nvim"] }
+"image/jpeg" = "io.github.woelper.Oculante"
+"image/webp" = "io.github.woelper.Oculante"
+"image/png" = "io.github.woelper.Oculante"
+"image/gif" = "io.github.woelper.Oculante"
 ```
 
 ## How to use it

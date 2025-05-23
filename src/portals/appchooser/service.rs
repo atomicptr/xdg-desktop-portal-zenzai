@@ -6,9 +6,18 @@ use zbus::{
 };
 use zvariant::{ObjectPath, OwnedValue, Value};
 
-use super::config::{AppChooserConfig, RunnerType};
+use crate::{
+    portals::appchooser::{
+        desktop_files::{DesktopEntry, find_desktop_entry},
+        run_command::{RunCommandError, run_command, run_picker_command},
+    },
+    terminal::Terminal,
+};
+
+use super::config::{AppChooserConfig, DefaultMapping, RunnerType};
 
 pub struct AppChooserService {
+    pub terminal: Terminal,
     pub config: AppChooserConfig,
 }
 
@@ -22,7 +31,15 @@ impl AppChooserService {
         choices: Vec<&str>,
         options: HashMap<&str, Value<'_>>,
     ) -> fdo::Result<(u32, HashMap<String, OwnedValue>)> {
-        tracing::info!(
+        let runner_type = &self.config.runner;
+
+        if runner_type.is_none() {
+            return Err(fdo::Error::Failed("runner type is unset".into()));
+        }
+
+        let runner_type = runner_type.as_ref().unwrap();
+
+        tracing::warn!(
             "ChooseApplication called with handle: {:?}, app_id: {:?}, parent_window: {}, choices: {:?}, options: {:?}",
             handle,
             app_id,
@@ -30,24 +47,180 @@ impl AppChooserService {
             choices,
             options
         );
-        tracing::info!("Config set as {:?}", self.config);
 
-        if let Some(runner) = &self.config.runner_type {
-            match runner {
-                RunnerType::Dmenu(cmd) => {
-                    tracing::info!("run: {:?} {:?}", cmd.command, cmd.arguments)
-                }
-            }
+        let uri = options.get("uri");
+        let content_type = options.get("content_type");
+        let activation_token = options.get("activation_token").map(|s| s.to_string());
+
+        if uri.is_none() || content_type.is_none() {
+            tracing::error!("uri or content_type undefined {:?}", &options);
+            return Err(fdo::Error::Failed(format!(
+                "uri or content_type undefined {:?}",
+                &options
+            )));
         }
 
-        Err(fdo::Error::Failed("not yet implemented".to_string()))
-    }
+        let uri = uri
+            .map(|uri| uri.to_string())
+            .map(|uri| uri.trim_matches('"').to_string())
+            .map(|uri| uri.trim_start_matches("file://").to_string())
+            .unwrap();
+        let content_type = content_type.unwrap().to_string();
+        let content_type = content_type.trim_matches('"');
 
-    async fn update_choices(&self, handle: ObjectPath<'_>, choices: Vec<&str>) -> fdo::Result<()> {
-        println!(
-            "UpdateChoices called with handle: {}, choices: {:?}",
-            handle, choices
+        let runner_cmd = match &runner_type {
+            RunnerType::Dmenu(cmd) => cmd,
+        };
+
+        tracing::info!("URI: {}, Content-Type: {}", uri, content_type);
+
+        // TODO: support content_type wildcards
+
+        // if we have a default mapping set for the content type we use that...
+        if let Some(option) = self.config.defaults.get(content_type) {
+            tracing::info!("Selected mapping: {:?}", option);
+
+            let res = match option {
+                DefaultMapping::Command(cmd) => {
+                    let cmd = cmd.with_input_file(uri);
+                    Ok(cmd.clone())
+                }
+                DefaultMapping::CommandChoice(cmds) => {
+                    let cmds_str: Vec<String> =
+                        cmds.into_iter().map(|c| c.command.clone()).collect();
+
+                    tracing::info!("{:?}", cmds_str);
+
+                    run_picker_command(runner_cmd, &cmds_str)
+                        .await
+                        .map(|cmd| {
+                            cmds.into_iter()
+                                .find(|c| c.command == cmd.trim())
+                                .expect("could not find command from options")
+                        })
+                        .map(|cmd| cmd.with_input_file(uri))
+                }
+                DefaultMapping::DesktopFile(file) => find_desktop_entry(file)
+                    .map(|entry| Ok(entry.command(&self.terminal).with_input_file(uri)))
+                    .unwrap_or(Err(RunCommandError::Other(format!(
+                        "Could not find desktop entry for {:?}",
+                        file
+                    )))),
+                DefaultMapping::DesktopFileChoice(files) => {
+                    let desktop_entries: Vec<DesktopEntry> = files
+                        .iter()
+                        .map(|name| find_desktop_entry(name))
+                        .filter(|entry| entry.is_some())
+                        .map(|entry| entry.unwrap())
+                        .collect();
+
+                    let options = desktop_entries
+                        .iter()
+                        .map(|entry| entry.name.clone())
+                        .collect();
+
+                    run_picker_command(runner_cmd, &options)
+                        .await
+                        .map(|entry| {
+                            desktop_entries
+                                .iter()
+                                .find(|e| e.name == entry.trim())
+                                .expect("could not find desktop file from options")
+                        })
+                        .map(|entry| entry.command(&self.terminal).with_input_file(uri))
+                }
+            };
+
+            if res.is_err() {
+                let err = format!("something went wrong while running {:?}", option);
+                tracing::error!("{}", err);
+                return Err(fdo::Error::Failed(err));
+            }
+
+            let res = res.unwrap();
+
+            let _ = run_command(&res).await?;
+
+            let new_token =
+                activation_token.unwrap_or_else(|| format!("token-{}", rand::random::<u32>()));
+
+            let mut m = HashMap::new();
+
+            m.insert(
+                "app_id".to_string(),
+                zvariant::Str::from(res.command).into(),
+            );
+            m.insert(
+                "activation_token".to_string(),
+                zvariant::Str::from(new_token).into(),
+            );
+            return Ok((0, m));
+        } else {
+            tracing::warn!("Nothing found in defaults: {:?}", self.config.defaults);
+        }
+
+        // no defaults set so lets evaluate user choices
+        if choices.is_empty() {
+            return Err(fdo::Error::Failed(
+                "No application choices provided".to_string(),
+            ));
+        }
+
+        let desktop_entries: Vec<DesktopEntry> = choices
+            .iter()
+            .map(|name| find_desktop_entry(name))
+            .filter(|entry| entry.is_some())
+            .map(|entry| entry.unwrap())
+            .collect();
+
+        let options = desktop_entries
+            .iter()
+            .map(|entry| entry.name.clone())
+            .collect();
+
+        let res = if desktop_entries.len() == 1 {
+            Ok(desktop_entries
+                .first()
+                .unwrap()
+                .command(&self.terminal)
+                .with_input_file(uri))
+        } else {
+            run_picker_command(runner_cmd, &options)
+                .await
+                .map(|entry| {
+                    desktop_entries
+                        .iter()
+                        .find(|e| e.name == entry.trim())
+                        .expect("could not find desktop file from options")
+                })
+                .map(|entry| entry.command(&self.terminal).with_input_file(uri))
+        };
+
+        if res.is_err() {
+            let err = format!("something went wrong while running {:?}", options);
+            tracing::error!("{}", err);
+            return Err(fdo::Error::Failed(err));
+        }
+
+        // TODO: refactor result handling
+        let res = res.unwrap();
+
+        let _ = run_command(&res).await?;
+
+        let new_token =
+            activation_token.unwrap_or_else(|| format!("token-{}", rand::random::<u32>()));
+
+        let mut m = HashMap::new();
+
+        m.insert(
+            "app_id".to_string(),
+            zvariant::Str::from(res.command).into(),
         );
-        Ok(())
+        m.insert(
+            "activation_token".to_string(),
+            zvariant::Str::from(new_token).into(),
+        );
+
+        Ok((0, m))
     }
 }

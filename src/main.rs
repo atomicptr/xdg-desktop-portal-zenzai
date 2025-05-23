@@ -6,11 +6,13 @@ use portals::{
     appchooser::service::AppChooserService, secret::service::SecretService,
     settings::service::SettingsService,
 };
+use terminal::{command_path, terminal_from_env};
 use zbus::{Result, conn::Builder};
 
 mod config;
 mod constants;
 mod portals;
+mod terminal;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -33,6 +35,13 @@ async fn main() -> Result<()> {
             panic!("Config Parse Error: {:?}", err.message());
         }
     };
+
+    tracing::debug!("Config: {:?}", config);
+
+    let terminal = config.terminal.unwrap_or(terminal_from_env());
+    if command_path(&terminal).is_none() {
+        panic!("Could not find terminal: {:?}", terminal);
+    }
 
     let mut any_enabled = false;
 
@@ -57,7 +66,7 @@ async fn main() -> Result<()> {
             tracing::info!("portal: org.freedesktop.portal.AppChooser enabled!");
             conn = conn.serve_at(
                 "/org/freedesktop/portal/desktop",
-                AppChooserService { config },
+                AppChooserService { terminal, config },
             )?;
         }
     }
