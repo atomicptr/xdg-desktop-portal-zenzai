@@ -42,6 +42,11 @@ arguments = ["--dmenu"]
 enabled = true # portals have to be explicitly enabled
 color-scheme = "dark" # set color scheme to dark/light
 accent-color = "#b4befe" # define an accent color
+
+# some apps query arbitrary data from the settings portal which you can set like this:
+[settings.dict."org.gnome.SomeApp"]
+some-key = "some value"
+some-number = 1337
 ```
 
 ## How to use it
