@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use zbus::{fdo, interface, object_server::SignalEmitter};
-use zvariant::{OwnedValue, Value};
+use zvariant::Value;
 
 use crate::portals::settings::config::{Contrast, SettingsMapValue};
 use crate::utils::hashmap::wildcard_get_all;
@@ -61,7 +61,10 @@ impl SettingsService {
         value
     }
 
-    async fn read_all(&self, namespaces: Vec<&str>) -> fdo::Result<OwnedValue> {
+    async fn read_all(
+        &self,
+        namespaces: Vec<&str>,
+    ) -> fdo::Result<HashMap<String, HashMap<String, Value<'_>>>> {
         tracing::debug!("ReadAll: {:?}", namespaces);
 
         // build the data map
