@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 
-use zbus::{fdo, interface, object_server::SignalEmitter};
-use zvariant::Value;
+use zbus::{Variant, fdo, interface, object_server::SignalEmitter};
 
 use crate::portals::settings::config::{Contrast, SettingsMapValue};
 use crate::utils::hashmap::wildcard_get_all;
@@ -21,7 +20,7 @@ impl SettingsService {
         1
     }
 
-    async fn read(&self, namespace: &str, key: &str) -> fdo::Result<Value<'_>> {
+    async fn read(&self, namespace: &str, key: &str) -> fdo::Result<Variant<'_>> {
         tracing::debug!("Read: {}.{}", namespace, key);
 
         if namespace != NAMESPACE {
@@ -32,10 +31,10 @@ impl SettingsService {
         }
 
         let value = match key {
-            KEY_COLOR_SCHEME => Ok(Value::U32(
+            KEY_COLOR_SCHEME => Ok(Variant::U32(
                 self.config.color_scheme.clone().unwrap_or_default().into(),
             )),
-            KEY_CONTRAST => Ok(Value::U32(
+            KEY_CONTRAST => Ok(Variant::U32(
                 self.config.contrast.clone().unwrap_or_default().into(),
             )),
             KEY_ACCENT_COLOR => self
@@ -64,7 +63,7 @@ impl SettingsService {
     async fn read_all(
         &self,
         namespaces: Vec<&str>,
-    ) -> fdo::Result<HashMap<String, HashMap<String, Value<'_>>>> {
+    ) -> fdo::Result<HashMap<String, HashMap<String, Variant<'_>>>> {
         tracing::debug!("ReadAll: {:?}", namespaces);
 
         // build the data map
@@ -77,10 +76,10 @@ impl SettingsService {
                 nsmap.insert(
                     k.clone(),
                     match v {
-                        SettingsMapValue::String(str) => zvariant::Value::Str(str.into()),
-                        SettingsMapValue::Int(int) => zvariant::Value::I64(int.clone()),
-                        SettingsMapValue::Bool(b) => zvariant::Value::Bool(b.clone()),
-                        SettingsMapValue::Float(f) => zvariant::Value::F64(f.clone()),
+                        SettingsMapValue::String(str) => Variant::Str(str.into()),
+                        SettingsMapValue::Int(int) => Variant::I64(int.clone()),
+                        SettingsMapValue::Bool(b) => Variant::Bool(b.clone()),
+                        SettingsMapValue::Float(f) => Variant::F64(f.clone()),
                     },
                 );
             }
@@ -97,13 +96,13 @@ impl SettingsService {
             .unwrap_or(ColorScheme::default());
         nsmap.insert(
             KEY_COLOR_SCHEME.to_string(),
-            Value::U32(color_scheme.clone().into()),
+            Variant::U32(color_scheme.clone().into()),
         );
 
         let contrast = self.config.contrast.clone().unwrap_or(Contrast::default());
         nsmap.insert(
             KEY_CONTRAST.to_string(),
-            Value::U32(contrast.clone().into()),
+            Variant::U32(contrast.clone().into()),
         );
 
         if let Some(color) = &self.config.accent_color {
@@ -138,6 +137,6 @@ impl SettingsService {
         ctx: &SignalEmitter<'_>,
         namespace: String,
         key: String,
-        value: Value<'_>,
+        value: Variant<'_>,
     ) -> zbus::Result<()>;
 }

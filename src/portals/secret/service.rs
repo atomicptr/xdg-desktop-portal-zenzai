@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 
-use zbus::{fdo, interface};
-use zvariant::{OwnedObjectPath, Value};
+use zbus::{OwnedObjectPath, Variant, fdo, interface};
 
 pub struct SecretService;
 
@@ -15,7 +14,7 @@ impl SecretService {
     async fn retrieve_secret(
         &self,
         handle: &str,
-        options: HashMap<&str, Value<'_>>,
+        options: HashMap<&str, Variant<'_>>,
     ) -> fdo::Result<OwnedObjectPath> {
         tracing::info!("retrieve secret: {} {:?}", handle, options);
         tracing::error!("not yet implemented");

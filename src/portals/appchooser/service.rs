@@ -1,10 +1,6 @@
 use std::collections::HashMap;
 
-use zbus::{
-    fdo::{self},
-    interface,
-};
-use zvariant::{ObjectPath, OwnedValue, Value};
+use zbus::{ObjectPath, OwnedVariant, Str, Variant, fdo, interface};
 
 use crate::{
     portals::appchooser::{
@@ -30,8 +26,8 @@ impl AppChooserService {
         app_id: &str,
         parent_window: &str,
         choices: Vec<&str>,
-        options: HashMap<&str, Value<'_>>,
-    ) -> fdo::Result<(u32, HashMap<String, OwnedValue>)> {
+        options: HashMap<&str, Variant<'_>>,
+    ) -> fdo::Result<(u32, HashMap<String, OwnedVariant>)> {
         let runner_type = &self.config.runner;
 
         if runner_type.is_none() {
@@ -204,18 +200,12 @@ impl AppChooserService {
     }
 }
 
-fn cmd_ok(command: &Command, token: &String) -> fdo::Result<(u32, HashMap<String, OwnedValue>)> {
+fn cmd_ok(command: &Command, token: &String) -> fdo::Result<(u32, HashMap<String, OwnedVariant>)> {
     let mut m = HashMap::new();
 
-    m.insert(
-        "app_id".to_string(),
-        zvariant::Str::from(&command.command).into(),
-    );
+    m.insert("app_id".to_string(), Str::from(&command.command).into());
 
-    m.insert(
-        "activation_token".to_string(),
-        zvariant::Str::from(token).into(),
-    );
+    m.insert("activation_token".to_string(), Str::from(token).into());
 
     Ok((0, m))
 }

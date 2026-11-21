@@ -53,7 +53,7 @@ async fn main() -> Result<()> {
 
     let mut any_enabled = false;
 
-    let mut conn = Builder::session()?.name(DBUS_NAME)?;
+    let mut conn = Builder::session().name(DBUS_NAME);
 
     if let Some(config) = config.settings
         && config.enabled
@@ -64,7 +64,7 @@ async fn main() -> Result<()> {
         conn = conn.serve_at(
             "/org/freedesktop/portal/desktop",
             SettingsService { config },
-        )?;
+        );
     }
 
     if let Some(config) = config.appchooser
@@ -76,7 +76,7 @@ async fn main() -> Result<()> {
         conn = conn.serve_at(
             "/org/freedesktop/portal/desktop",
             AppChooserService { terminal, config },
-        )?;
+        );
     }
 
     if let Some(config) = config.secret
@@ -85,7 +85,7 @@ async fn main() -> Result<()> {
         any_enabled = true;
 
         tracing::info!("portal: org.freedesktop.portal.Secret enabled!");
-        conn = conn.serve_at("/org/freedesktop/portal/desktop", SecretService)?;
+        conn = conn.serve_at("/org/freedesktop/portal/desktop", SecretService);
     }
 
     if !any_enabled {
