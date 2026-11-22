@@ -1,5 +1,8 @@
 use serde::Deserialize;
-use zenzai_core::appchooser::{AppChooserConfig, TerminalName};
+use zenzai_core::{
+    appchooser::{AppChooserConfig, TerminalName},
+    appearance::ThemeConfig,
+};
 
 use crate::portals::{print::config::PrintConfig, settings::config::SettingsConfig};
 
@@ -9,6 +12,9 @@ pub struct Config {
     pub settings: Option<SettingsConfig>,
     pub appchooser: Option<AppChooserConfig>,
     pub print: Option<PrintConfig>,
+    // Validate the shared GUI schema even though the daemon does not use it.
+    #[serde(rename = "theme")]
+    _theme: Option<ThemeConfig>,
 }
 
 #[cfg(test)]
@@ -59,5 +65,9 @@ mod tests {
             .iter()
             .all(|color| color.is_some())
         );
+
+        let invalid_theme = FULL_CONFIG.replace("text-size = 14", "text-size = \"invalid\"");
+        assert_ne!(invalid_theme, FULL_CONFIG);
+        assert!(toml::from_str::<Config>(&invalid_theme).is_err());
     }
 }

@@ -1,5 +1,3 @@
-use std::future::pending;
-
 use anyhow::Result;
 use config::Config;
 use constants::{APP_VERSION, DBUS_NAME, DBUS_PATH};
@@ -8,6 +6,8 @@ use portals::{
     print::{dialog::DIALOG_COMMAND, service::PrintService},
     settings::service::SettingsService,
 };
+use reload::{ConfigWatcher, EnabledPortals, Reload};
+use tokio::sync::watch;
 use tracing_subscriber::EnvFilter;
 use which::which;
 use zbus::conn::Builder;
@@ -16,6 +16,7 @@ use zenzai_core::config::load_or_default;
 mod config;
 mod constants;
 mod portals;
+mod reload;
 mod utils;
 
 #[tokio::main]
@@ -35,7 +36,13 @@ async fn main() -> Result<()> {
 
     tracing::info!("xdg-desktop-portal-zenzai v{} started!", APP_VERSION);
 
+    let mut watcher = ConfigWatcher::new()?;
     let config: Config = load_or_default()?;
+    let mut reload = Reload {
+        enabled: EnabledPortals::from(&config),
+        appchooser: None,
+        print: None,
+    };
 
     tracing::debug!("Config: {:?}", config);
 
@@ -50,7 +57,7 @@ async fn main() -> Result<()> {
         any_enabled = true;
 
         tracing::info!("portal: org.freedesktop.portal.Settings enabled!");
-        conn = conn.serve_at(DBUS_PATH, SettingsService { config });
+        conn = conn.serve_at(DBUS_PATH, SettingsService::new(config));
     }
 
     if let Some(config) = config.appchooser
@@ -61,6 +68,8 @@ async fn main() -> Result<()> {
             Ok(command) => {
                 any_enabled = true;
                 tracing::info!("portal: org.freedesktop.portal.AppChooser enabled!");
+                let (sender, command) = watch::channel(command);
+                reload.appchooser = Some(sender);
                 conn = conn.serve_at(DBUS_PATH, AppChooserService { command });
             }
             Err(err) => tracing::error!("AppChooser disabled, could not find {command:?}: {err}"),
@@ -77,6 +86,8 @@ async fn main() -> Result<()> {
                 any_enabled = true;
 
                 tracing::info!("portal: org.freedesktop.portal.Print enabled!");
+                let (sender, command) = watch::channel(command);
+                reload.print = Some(sender);
                 conn = conn.serve_at(DBUS_PATH, PrintService::new(command));
             }
             Err(_) => tracing::error!(
@@ -90,8 +101,13 @@ async fn main() -> Result<()> {
         return Ok(());
     }
 
-    let _conn = conn.build().await?;
-    pending::<()>().await;
+    let conn = conn.build().await?;
+    // Reload once after registration to catch edits made during startup.
+    loop {
+        if let Err(err) = reload.apply(&conn).await {
+            tracing::warn!("config reload rejected, keeping current configuration: {err:#}");
+        }
 
-    Ok(())
+        watcher.changed().await;
+    }
 }

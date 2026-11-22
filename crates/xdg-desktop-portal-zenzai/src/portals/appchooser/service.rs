@@ -1,24 +1,25 @@
 use std::{collections::HashMap, path::PathBuf, process::Stdio};
 
 use anyhow::{Context, Result, bail};
-use tokio::{io::AsyncWriteExt, process::Command};
+use tokio::{io::AsyncWriteExt, process::Command, sync::watch};
 use zbus::{ObjectPath, OwnedVariant, Variant, fdo, interface};
 use zenzai_core::ipc::{AppSelectRequest, EXIT_CANCELLED, EXIT_SUCCESS};
 
 pub const SELECT_COMMAND: &str = "zenzai-app-select";
 
 pub struct AppChooserService {
-    pub command: PathBuf,
+    pub command: watch::Receiver<PathBuf>,
 }
 
 impl AppChooserService {
     async fn choose(&self, request: &AppSelectRequest) -> Result<u32> {
-        let mut child = Command::new(&self.command)
+        let command = self.command.borrow().clone();
+        let mut child = Command::new(&command)
             .arg("--portal")
             .stdin(Stdio::piped())
             .kill_on_drop(true)
             .spawn()
-            .with_context(|| format!("could not start {}", self.command.display()))?;
+            .with_context(|| format!("could not start {}", command.display()))?;
         let mut stdin = child.stdin.take().context("could not open chooser stdin")?;
         stdin.write_all(&serde_json::to_vec(request)?).await?;
         drop(stdin);

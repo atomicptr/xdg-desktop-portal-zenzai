@@ -8,7 +8,7 @@ const CONFIG_FILE_NAME: &str = "config.toml";
 const DEFAULT_CONFIG_DIRS: &str = "/etc/xdg";
 
 // $XDG_CONFIG_HOME first, then $XDG_CONFIG_DIRS where e.g. the NixOS module puts its file
-fn config_file() -> Option<PathBuf> {
+pub fn config_paths() -> Vec<PathBuf> {
     let config_dirs = env::var("XDG_CONFIG_DIRS")
         .ok()
         .filter(|dirs| !dirs.is_empty())
@@ -18,7 +18,11 @@ fn config_file() -> Option<PathBuf> {
         .into_iter()
         .chain(env::split_paths(&config_dirs).filter(|dir| dir.is_absolute()))
         .map(|dir| dir.join(APP_NAME).join(CONFIG_FILE_NAME))
-        .find(|path| path.is_file())
+        .collect()
+}
+
+fn config_file() -> Option<PathBuf> {
+    config_paths().into_iter().find(|path| path.is_file())
 }
 
 // a missing file means defaults, a broken one is an error

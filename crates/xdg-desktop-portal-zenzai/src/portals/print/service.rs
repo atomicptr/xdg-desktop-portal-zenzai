@@ -4,6 +4,7 @@ use std::{
     sync::{Mutex, MutexGuard, PoisonError},
 };
 
+use tokio::sync::watch;
 use zbus::{Fd, ObjectPath, OwnedVariant, Variant, fdo, interface};
 use zenzai_core::ipc::{PrintRequest, PrintResponse};
 
@@ -20,12 +21,12 @@ const RESPONSE_CANCELLED: u32 = 1;
 const RESPONSE_OTHER: u32 = 2;
 
 pub struct PrintService {
-    command: PathBuf,
+    command: watch::Receiver<PathBuf>,
     tokens: Mutex<Tokens>,
 }
 
 impl PrintService {
-    pub fn new(command: PathBuf) -> Self {
+    pub fn new(command: watch::Receiver<PathBuf>) -> Self {
         Self {
             command,
             tokens: Mutex::default(),
@@ -38,7 +39,8 @@ impl PrintService {
     }
 
     async fn run_dialog(&self, request: &PrintRequest) -> Result<Outcome, u32> {
-        dialog::run(&self.command, request).await.map_err(|err| {
+        let command = self.command.borrow().clone();
+        dialog::run(&command, request).await.map_err(|err| {
             tracing::error!("print dialog: {err:#}");
             RESPONSE_OTHER
         })
