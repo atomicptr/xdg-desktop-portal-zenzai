@@ -40,7 +40,7 @@ const NOT_ACCEPTING: &str = "Printer is not accepting jobs";
 const SETTINGS_PADDING: [u16; 2] = [0, 12];
 const PERCENT: f64 = 100.0;
 
-// rendered sides kept around, enough to flip back and forth without re-rendering
+// Keep recently viewed sides to avoid re-rendering during navigation.
 const PREVIEW_CACHE_SIZE: usize = 32;
 
 #[derive(Clone)]
@@ -119,10 +119,10 @@ pub struct State {
     pub(super) capabilities: Option<Capabilities>,
     error: Option<String>,
     pub(super) preview_side: usize,
-    // the file chooser is open, accepting now would ignore the pending choice
+    // Accepting while the chooser is open would ignore its pending choice.
     pub(super) picking_output: bool,
     pub(super) manual_output: bool,
-    // entries are only valid for the stored spec, settings may have changed since
+    // A side's cached preview is valid only for its stored spec.
     previews: HashMap<usize, (SheetSpec, Preview)>,
     outcome: Arc<Mutex<Outcome>>,
 }
@@ -132,8 +132,7 @@ impl State {
         self.selected == Some(Destination::SavePdf)
     }
 
-    // existing documents are saved verbatim, only printers or the rendering application
-    // apply page options
+    // Existing PDFs are saved verbatim; only printers or the application apply page options.
     pub fn page_options_apply(&self) -> bool {
         !(self.is_pdf() && self.dialog.has_document)
     }
@@ -144,10 +143,6 @@ impl State {
             .map(|caps| caps.papers.clone())
             .filter(|papers| !papers.is_empty())
             .unwrap_or_else(Paper::known)
-    }
-
-    pub fn output_display(&self) -> String {
-        output::display(&self.dialog.output)
     }
 
     pub fn sides(&self) -> Vec<Vec<u32>> {
@@ -379,7 +374,7 @@ fn render_previews(state: &mut State) -> Task<Message> {
         )
     });
 
-    Task::batch(tasks.collect::<Vec<_>>())
+    Task::batch(tasks)
 }
 
 fn select(state: &mut State, destination: Destination) -> Task<Message> {
@@ -428,13 +423,10 @@ fn apply_capabilities(settings: &mut JobSettings, caps: &Capabilities) {
         settings.color = ColorMode::Auto;
     }
 
-    let media_type_supported =
-        |value: &String| caps.media_types.iter().any(|choice| &choice.value == value);
-
-    if !settings
+    if settings
         .media_type
         .as_ref()
-        .is_none_or(media_type_supported)
+        .is_some_and(|value| !caps.media_types.iter().any(|choice| &choice.value == value))
     {
         settings.media_type = None;
     }
@@ -547,7 +539,7 @@ fn update(state: &mut State, message: Message) -> Task<Message> {
             render_previews(state)
         }
         Message::PreviewRendered(side, spec, preview) => {
-            // results for settings that changed in the meantime are useless
+            // Ignore renders superseded by newer settings.
             if let Some((known, entry)) = state.previews.get_mut(&side)
                 && *known == spec
             {
@@ -602,7 +594,6 @@ fn view(state: &State) -> Element<'_, Message> {
         (None, false) => DEFAULT_ACCEPT_LABEL,
     };
 
-    // both panes share the height, the settings scroll instead of pushing anything around
     let content = row![
         container(form::preview(state)).width(FillPortion(1)),
         scrollable(container(form::settings(state)).padding(SETTINGS_PADDING))
@@ -627,7 +618,6 @@ fn view(state: &State) -> Element<'_, Message> {
     .into()
 }
 
-// errors first, then what the printer reports about itself
 fn messages(state: &State) -> Option<Element<'_, Message>> {
     let error = state.error.iter().map(|error| (error.as_str(), true));
     let reasons = state

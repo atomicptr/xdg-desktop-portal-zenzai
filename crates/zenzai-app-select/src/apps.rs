@@ -1,4 +1,5 @@
 use std::{
+    borrow::Cow,
     collections::HashSet,
     fs,
     path::PathBuf,
@@ -12,7 +13,9 @@ use freedesktop_desktop_entry::{
 use termlauncher::{Application, CustomTerminal, Terminal};
 use url::Url;
 use which::which;
-use zenzai_core::appchooser::Target;
+use zenzai_core::{appchooser::Target, ipc::AppSelectRequest};
+
+use crate::email;
 
 const DESKTOP_SUFFIX: &str = ".desktop";
 const FILE_PLACEHOLDER: &str = "%file%";
@@ -36,9 +39,16 @@ impl App {
             .is_some_and(|candidate| desktop_id(candidate) == desktop_id(id))
     }
 
-    pub fn launch(&self, terminal: &Terminal) -> Result<()> {
-        let (program, arguments) = self
-            .command
+    pub fn launch(&self, terminal: &Terminal, request: &AppSelectRequest) -> Result<()> {
+        let email_command = request.email.as_ref().and_then(|email| {
+            self.id
+                .as_deref()
+                .filter(|id| id.to_ascii_lowercase().contains("thunderbird"))
+                .map(|_| email::thunderbird_command(&self.command, &request.uri, email))
+        });
+        let (program, arguments) = email_command
+            .as_ref()
+            .unwrap_or(&self.command)
             .split_first()
             .context("empty application command")?;
         let mut command = if self.terminal {
@@ -54,6 +64,10 @@ impl App {
 
         if let Some(directory) = &self.directory {
             command.current_dir(directory);
+        }
+
+        if let Some(token) = &request.activation_token {
+            command.env("XDG_ACTIVATION_TOKEN", token);
         }
 
         // Keep application output out of callers' captured chooser output.
@@ -145,11 +159,11 @@ pub fn discover(file: &str) -> Vec<App> {
                 continue;
             }
 
-            let result = DesktopEntry::from_path(&path, Some(&locales))
-                .map_err(anyhow::Error::from)
-                .and_then(|entry| from_entry(entry, id, file, &locales, &desktops));
+            let Ok(entry) = DesktopEntry::from_path(&path, Some(&locales)) else {
+                continue;
+            };
 
-            if let Ok(app) = result {
+            if let Ok(app) = from_entry(entry, id, file, &locales, &desktops) {
                 apps.push(app);
             }
         }
@@ -184,10 +198,10 @@ fn from_entry(
         which(executable)?;
     }
 
-    // The parser substitutes both file and URI field codes literally, so use a local path
-    // for %f/%F and the original URI for %u/%U.
-    let uri = Url::parse(file).ok();
-    let local = uri.as_ref().and_then(|uri| uri.to_file_path().ok());
+    // Exec parsing treats field codes literally: %f/%F need local paths, %u/%U URIs.
+    let local = Url::parse(file)
+        .ok()
+        .and_then(|uri| uri.to_file_path().ok());
     let argument = if entry
         .exec()
         .is_some_and(|exec| exec.contains("%f") || exec.contains("%F"))
@@ -196,9 +210,8 @@ fn from_entry(
             .as_ref()
             .context("application requires a local file")?
             .to_string_lossy()
-            .into_owned()
     } else {
-        file.to_string()
+        Cow::Borrowed(file)
     };
     let command = entry.parse_exec_with_uris(&[&argument], locales)?;
     which(command.first().context("empty Exec")?)?;

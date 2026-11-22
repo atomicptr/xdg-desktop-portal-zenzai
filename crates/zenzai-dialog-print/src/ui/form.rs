@@ -15,7 +15,10 @@ use crate::{
     },
 };
 
-use super::app::{Message, Preview, State};
+use super::{
+    app::{Message, Preview, State},
+    output,
+};
 
 const FORM_SPACING: u32 = 12;
 const CONTROL_WIDTH: f32 = 240.0;
@@ -106,7 +109,6 @@ pub fn settings(state: &State) -> Element<'_, Message> {
         form = form.push(form_row(LABEL_FILE, output(state)));
     }
 
-    // documents saved as is take no print options
     if !state.page_options_apply() {
         return form.into();
     }
@@ -143,7 +145,6 @@ pub fn settings(state: &State) -> Element<'_, Message> {
         false => COLLAPSED,
     };
 
-    // laid out like a form row so label and arrow line up with the rows around it
     let toggle = button(form_row(
         MORE_SETTINGS,
         container(text(arrow)).align_right(CONTROL_WIDTH),
@@ -162,12 +163,13 @@ pub fn settings(state: &State) -> Element<'_, Message> {
 }
 
 fn output(state: &State) -> Element<'_, Message> {
+    let display = output::display(&state.dialog.output);
     let path: Element<'_, Message> = match state.manual_output {
-        true => text_input(OUTPUT_PLACEHOLDER, &state.output_display())
+        true => text_input(OUTPUT_PLACEHOLDER, &display)
             .on_input(Message::OutputTyped)
             .width(Fill)
             .into(),
-        false => text(state.output_display()).width(Fill).into(),
+        false => text(display).width(Fill).into(),
     };
 
     let choose = button(text(CHOOSE_LABEL))
@@ -239,7 +241,6 @@ fn more_settings(state: &State) -> Element<'_, Message> {
     .spacing(FORM_SPACING);
 
     if let Some(media_types) = caps.map(|caps| &caps.media_types).filter(|t| !t.is_empty()) {
-        // the job stores the IPP keyword, the picker shows what CUPS calls it
         let selected = media_types
             .iter()
             .find(|choice| current.media_type.as_ref() == Some(&choice.value));
@@ -258,7 +259,6 @@ fn more_settings(state: &State) -> Element<'_, Message> {
 
     form = form.push(form_row(
         LABEL_PAGES_PER_SHEET,
-        // a handful of numbers, searching them makes no sense
         container(dropdown(
             LABEL_PAGES_PER_SHEET,
             &NUMBER_UP_CHOICES,
@@ -390,7 +390,6 @@ fn side_label(state: &State, side: usize, count: usize) -> String {
         return position;
     }
 
-    // two-sided printing puts every second side on the back of the previous sheet
     let face = match side % 2 {
         0 => FRONT,
         _ => BACK,

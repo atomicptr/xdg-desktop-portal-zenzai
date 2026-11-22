@@ -70,8 +70,7 @@ fn segment_style(theme: &Theme, status: button::Status, is_selected: bool) -> bu
     }
 }
 
-// the halves match a two pane layout with the same padding and spacing, so messages wrap
-// at the width of the left pane and grow the bar instead of squeezing the buttons
+// Match pane widths so status text wraps without squeezing the buttons.
 pub fn action_bar<'a, Message: Clone + 'a>(
     status: Option<Element<'a, Message>>,
     cancel_label: &'a str,
@@ -112,8 +111,7 @@ pub fn form_row<'a, Message: 'a>(
     .into()
 }
 
-// typed values are only capped at `max`, clamping to `min` on every keystroke would make it
-// impossible to clear the field or type multi-digit numbers, callers validate the minimum
+// Enforce the minimum on submit, not while typing multi-digit values.
 pub fn stepper<'a, Message: Clone + 'a>(
     value: u32,
     min: u32,

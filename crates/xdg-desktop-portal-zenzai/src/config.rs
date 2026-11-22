@@ -5,7 +5,7 @@ use zenzai_core::{
 };
 
 use crate::portals::{
-    notification::config::NotificationConfig, print::config::PrintConfig,
+    email::EmailConfig, notification::config::NotificationConfig, print::config::PrintConfig,
     settings::config::SettingsConfig,
 };
 
@@ -14,6 +14,7 @@ pub struct Config {
     pub terminal: Option<TerminalName>,
     pub settings: Option<SettingsConfig>,
     pub appchooser: Option<AppChooserConfig>,
+    pub email: Option<EmailConfig>,
     pub print: Option<PrintConfig>,
     pub notification: Option<NotificationConfig>,
     // Validate the shared GUI schema even though the daemon does not use it.
@@ -29,7 +30,7 @@ mod tests {
 
     use super::*;
 
-    // shared with the Nix module check, every option the module can set must be understood here
+    // Shared with the Nix module check to cover every generated option.
     const FULL_CONFIG: &str = include_str!("../tests/full-config.toml");
 
     #[test]
@@ -50,6 +51,10 @@ mod tests {
         assert!(appchooser.command.is_some());
         assert!(!appchooser.write_mimeapps);
         assert_eq!(appchooser.defaults.len(), 3);
+
+        let email = config.email.unwrap();
+        assert!(email.enabled);
+        assert_eq!(email.command.as_deref(), Some("zenzai-app-select"));
 
         let print = config.print.unwrap();
         assert!(print.enabled);

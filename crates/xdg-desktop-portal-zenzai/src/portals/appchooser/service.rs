@@ -12,7 +12,7 @@ pub struct AppChooserService {
 }
 
 impl AppChooserService {
-    async fn choose(&self, request: &AppSelectRequest) -> Result<u32> {
+    pub async fn choose(&self, request: &AppSelectRequest) -> Result<u32> {
         let command = self.command.borrow().clone();
         let mut child = Command::new(&command)
             .arg("--portal")
@@ -55,6 +55,7 @@ impl AppChooserService {
                 uri: option("uri")?.to_string(),
                 content_type: option("content_type")?.to_string(),
                 choices: choices.into_iter().map(str::to_string).collect(),
+                ..Default::default()
             };
             self.choose(&request).await
         }

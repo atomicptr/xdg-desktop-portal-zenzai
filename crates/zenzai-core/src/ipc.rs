@@ -24,8 +24,7 @@ pub struct PrintRequest {
     pub page_setup: PageSetup,
     pub document: Option<PathBuf>,
     pub interactive: bool,
-    // the application already applied page selection, order and scaling,
-    // the dialog must not apply them again
+    // Page selection, order, and scaling are already applied.
     pub prerendered: bool,
     pub accept_label: Option<String>,
     pub has_current_page: bool,
@@ -39,9 +38,21 @@ pub struct PrintResponse {
     pub page_setup: PageSetup,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 pub struct AppSelectRequest {
     pub uri: String,
     pub content_type: String,
     pub choices: Vec<String>,
+    pub activation_token: Option<String>,
+    pub email: Option<Email>,
+}
+
+#[derive(Debug, Default, Serialize, Deserialize)]
+pub struct Email {
+    pub addresses: Vec<String>,
+    pub cc: Vec<String>,
+    pub bcc: Vec<String>,
+    pub subject: String,
+    pub body: String,
+    pub attachments: Vec<String>,
 }

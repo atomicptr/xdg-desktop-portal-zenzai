@@ -1,6 +1,5 @@
 use std::{
-    fs,
-    io::{self, Read, Write},
+    fs, io,
     path::{Path, PathBuf},
     process::ExitCode,
     sync::Arc,
@@ -129,8 +128,7 @@ fn run_portal() -> Result<bool> {
     Ok(true)
 }
 
-// GTK always sends a page setup with locale defaults, so it only seeds the dialog: remembered
-// choices override it and settings the application chose explicitly override both
+// GTK's locale defaults seed the dialog; remembered choices and explicit settings take precedence.
 fn dialog(request: &PrintRequest) -> Result<Dialog> {
     let remembered = Remembered::load();
 
@@ -195,7 +193,7 @@ fn prepared(request: &PrintRequest) -> Result<Outcome> {
     }
 }
 
-// returns the CUPS job id or the saved path, what scripts using the CLI need
+// Returns the CUPS job ID or saved path for CLI scripts.
 fn carry_out(request: &PrintRequest, outcome: &Outcome) -> Result<Option<String>> {
     match outcome {
         Outcome::Cancelled => return Ok(None),
@@ -203,7 +201,7 @@ fn carry_out(request: &PrintRequest, outcome: &Outcome) -> Result<Option<String>
         Outcome::SavePdf { settings, .. } => Remembered::save(None, settings),
     }
 
-    // PreparePrint has no document yet, the application prints it in a later call
+    // PreparePrint has no document; the application submits it later.
     let Some(document) = request.document.as_deref() else {
         return Ok(None);
     };
@@ -228,13 +226,10 @@ fn carry_out(request: &PrintRequest, outcome: &Outcome) -> Result<Option<String>
 }
 
 fn copy_stdin() -> Result<NamedTempFile> {
-    let mut data = Vec::new();
-    io::stdin().read_to_end(&mut data)?;
-
     let mut file = tempfile::Builder::new()
         .suffix(&format!(".{PDF_EXTENSION}"))
         .tempfile()?;
-    file.write_all(&data)?;
+    io::copy(&mut io::stdin().lock(), &mut file)?;
 
     Ok(file)
 }

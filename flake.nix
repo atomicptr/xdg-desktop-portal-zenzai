@@ -49,7 +49,7 @@
       checks = forAllSystems (pkgs: {
         package = package pkgs;
 
-        # the module options must produce exactly what the Rust config parser is tested against
+        # Keep generated config aligned with the Rust parser fixture.
         module-config =
           let
             module = lib.evalModules {

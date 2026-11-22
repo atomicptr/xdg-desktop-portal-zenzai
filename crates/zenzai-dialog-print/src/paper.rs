@@ -59,12 +59,12 @@ impl Paper {
     }
 
     pub fn known_by_size(width_mm: f64, height_mm: f64) -> Option<Self> {
-        Self::known()
-            .into_iter()
+        KNOWN
+            .iter()
+            .filter_map(|(name, _, _)| Self::from_pwg(name))
             .find(|paper| sizes_match((paper.width_mm, paper.height_mm), (width_mm, height_mm)))
     }
 
-    // printers report the same size under many names, show the established one
     pub fn display_name(&self) -> &str {
         &self.display
     }
@@ -129,7 +129,6 @@ fn display_name(name: &str, size: (f64, f64)) -> String {
     {
         Some("") => display.to_string(),
         Some(variant) => format!("{display} ({})", variant.replace('-', " ")),
-        None if *known == name => display.to_string(),
         None => format!("{display} ({})", short.replace('-', " ")),
     }
 }

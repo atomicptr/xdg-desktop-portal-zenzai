@@ -15,12 +15,11 @@ in
   };
 
   config = lib.mkIf cfg.enable {
-    # found through $XDG_CONFIG_DIRS, a user's own config.toml takes precedence
+    # User config takes precedence.
     environment.etc."xdg/xdg-desktop-portal-zenzai/config.toml".source =
       (pkgs.formats.toml { }).generate "config.toml"
         (import ./config.nix { inherit lib; } cfg);
 
-    # registers the .portal file, D-Bus activation, the systemd user unit and the binaries
     xdg.portal = {
       enable = lib.mkDefault true;
       extraPortals = [ cfg.package ];

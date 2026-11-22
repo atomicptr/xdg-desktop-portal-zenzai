@@ -10,6 +10,10 @@ write-mimeapps = false
 "image/*" = ["io.github.woelper.Oculante.desktop", { arguments = [], command = "imv" }]
 "text/plain" = { arguments = ["-e", "nvim"], command = "ghostty" }
 
+[email]
+command = "zenzai-app-select"
+enabled = true
+
 [notification]
 enabled = true
 

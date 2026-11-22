@@ -63,7 +63,6 @@ mod setup {
 }
 
 const TRUE: &str = "true";
-const FALSE: &str = "false";
 pub const PDF_FORMAT: &str = "pdf";
 const DEFAULT_SCALE: u32 = 100;
 pub const MIN_SCALE: u32 = 10;
@@ -211,9 +210,9 @@ pub fn parse_ranges(input: &str) -> Option<Vec<PageRange>> {
         .filter(|ranges| !ranges.is_empty())
 }
 
-pub fn format_ranges(ranges: &[PageRange]) -> String {
+fn format_ranges(ranges: impl IntoIterator<Item = PageRange>) -> String {
     ranges
-        .iter()
+        .into_iter()
         .map(|range| match range.start == range.end {
             true => range.start.to_string(),
             false => format!("{}-{}", range.start, range.end),
@@ -224,36 +223,23 @@ pub fn format_ranges(ranges: &[PageRange]) -> String {
 
 // the portal transmits page ranges 0-based
 fn ranges_from_portal(value: &str) -> Option<Vec<PageRange>> {
-    let shifted = value
+    value
         .split(',')
         .map(|part| {
-            part.split('-')
-                .map(|n| {
-                    n.trim()
-                        .parse::<u32>()
-                        .ok()?
-                        .checked_add(1)
-                        .map(|n| n.to_string())
-                })
-                .collect::<Option<Vec<_>>>()
-                .map(|parts| parts.join("-"))
-        })
-        .collect::<Option<Vec<_>>>()?
-        .join(",");
+            let (start, end) = part.split_once('-').unwrap_or((part, part));
+            let start = start.trim().parse::<u32>().ok()?.checked_add(1)?;
+            let end = end.trim().parse::<u32>().ok()?.checked_add(1)?;
 
-    parse_ranges(&shifted)
+            (end >= start).then_some(PageRange { start, end })
+        })
+        .collect()
 }
 
 fn ranges_to_portal(ranges: &[PageRange]) -> String {
-    ranges
-        .iter()
-        .map(|range| PageRange {
-            start: range.start - 1,
-            end: range.end - 1,
-        })
-        .map(|range| format_ranges(&[range]))
-        .collect::<Vec<_>>()
-        .join(",")
+    format_ranges(ranges.iter().map(|range| PageRange {
+        start: range.start - 1,
+        end: range.end - 1,
+    }))
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -359,7 +345,7 @@ impl JobSettings {
         }
 
         if let Some(ranges) = get(key::PAGE_RANGES).and_then(ranges_from_portal) {
-            self.ranges = format_ranges(&ranges);
+            self.ranges = format_ranges(ranges);
         }
 
         if let Some(duplex) = get(key::DUPLEX).and_then(Duplex::from_portal) {
@@ -414,8 +400,8 @@ impl JobSettings {
 
         set(key::ORIENTATION, self.orientation.portal().to_string());
         set(key::N_COPIES, self.copies.to_string());
-        set(key::COLLATE, bool_str(self.collate));
-        set(key::REVERSE, bool_str(self.reverse));
+        set(key::COLLATE, self.collate.to_string());
+        set(key::REVERSE, self.reverse.to_string());
         set(key::DUPLEX, self.duplex.portal().to_string());
         set(key::QUALITY, self.quality.portal().to_string());
         set(key::NUMBER_UP, self.number_up.to_string());
@@ -487,9 +473,8 @@ impl JobSettings {
         setup
     }
 
-    // when prerendered the application already applied page selection, page order and
-    // scaling while producing the document, so only device options are sent
-    pub fn ipp_options(&self, prerendered: bool) -> Vec<(String, String)> {
+    // Prerendered documents already have page selection, order and scaling applied.
+    pub fn ipp_options(&self, prerendered: bool) -> Vec<(&'static str, String)> {
         let collate = match self.collate {
             true => ipp::COLLATED,
             false => ipp::UNCOLLATED,
@@ -518,10 +503,7 @@ impl JobSettings {
         if !prerendered {
             options.extend([
                 (ipp::ORIENTATION, Some(self.orientation.ipp().to_string())),
-                (
-                    ipp::PAGE_RANGES,
-                    self.page_ranges().map(|ranges| format_ranges(&ranges)),
-                ),
+                (ipp::PAGE_RANGES, self.page_ranges().map(format_ranges)),
                 (
                     ipp::PAGE_SET,
                     (self.page_set != PageSet::All).then(|| self.page_set.ipp().to_string()),
@@ -537,12 +519,11 @@ impl JobSettings {
 
         options
             .into_iter()
-            .filter_map(|(key, value)| Some((key.to_string(), value?)))
+            .filter_map(|(key, value)| Some((key, value?)))
             .collect()
     }
 
-    // mirrors CUPS' pdftopdf: pages are placed n-up first, odd/even then picks output sides
-    // and reverse flips the order of sides, not of the pages on them
+    // Match CUPS: n-up first, then odd/even output sides, then reverse the sides.
     pub fn sides(&self, page_count: u32) -> Vec<Vec<u32>> {
         let pages: Vec<u32> = match self.page_ranges() {
             Some(ranges) => ranges
@@ -593,14 +574,6 @@ fn number(setup: &PageSetup, key: &str) -> Option<f64> {
     }
 }
 
-fn bool_str(value: bool) -> String {
-    match value {
-        true => TRUE,
-        false => FALSE,
-    }
-    .to_string()
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -621,6 +594,13 @@ mod tests {
         settings.ranges.clear();
         settings.apply_portal(&portal, &PageSetup::new());
         assert_eq!(settings.ranges, "1-3,7");
+
+        let last = PageRange {
+            start: u32::MAX,
+            end: u32::MAX,
+        };
+        assert_eq!(ranges_from_portal("4294967294"), Some(vec![last]));
+        assert_eq!(ranges_to_portal(&[last]), "4294967294");
     }
 
     #[test]
@@ -643,6 +623,20 @@ mod tests {
     #[test]
     fn rejects_invalid_ranges() {
         assert!(ranges_from_portal(&u32::MAX.to_string()).is_none());
+
+        for value in [
+            "",
+            "1,",
+            ",1",
+            "1,,2",
+            "3-1",
+            "1-2-3",
+            "a-b",
+            "0-4294967295",
+        ] {
+            assert!(ranges_from_portal(value).is_none(), "{value:?}");
+        }
+
         assert!(parse_ranges("3-1").is_none());
         assert!(parse_ranges("0").is_none());
         assert!(parse_ranges("a-b").is_none());
@@ -699,7 +693,7 @@ mod tests {
         let has = |prerendered, key: &str| {
             settings
                 .ipp_options(prerendered)
-                .iter()
+                .into_iter()
                 .any(|(k, _)| k == key)
         };
 

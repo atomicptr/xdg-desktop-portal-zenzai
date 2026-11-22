@@ -43,12 +43,13 @@ pub async fn pick(current: PathBuf) -> Result<Option<PathBuf>, String> {
 }
 
 pub fn display(path: &Path) -> String {
-    let relative = home_dir().and_then(|home| path.strip_prefix(home).ok().map(Path::to_path_buf));
-
-    match relative {
-        Some(relative) => Path::new(HOME_PREFIX).join(relative).display().to_string(),
-        None => path.display().to_string(),
+    if let Some(home) = home_dir()
+        && let Ok(relative) = path.strip_prefix(home)
+    {
+        return Path::new(HOME_PREFIX).join(relative).display().to_string();
     }
+
+    path.display().to_string()
 }
 
 pub fn expand(path: &str) -> PathBuf {

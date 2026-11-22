@@ -57,6 +57,7 @@ fn watch_directories(targets: &HashSet<PathBuf>) -> HashMap<PathBuf, DirectoryId
 pub struct EnabledPortals {
     settings: bool,
     appchooser: bool,
+    email: bool,
     print: bool,
     notification: bool,
 }
@@ -72,6 +73,7 @@ impl From<&Config> for EnabledPortals {
                 .appchooser
                 .as_ref()
                 .is_some_and(|config| config.enabled),
+            email: config.email.as_ref().is_some_and(|config| config.enabled),
             print: config.print.as_ref().is_some_and(|config| config.enabled),
             notification: config
                 .notification
@@ -220,6 +222,7 @@ fn watch_targets() -> HashSet<PathBuf> {
 pub struct Reload {
     pub enabled: EnabledPortals,
     pub appchooser: Option<watch::Sender<PathBuf>>,
+    pub email: Option<watch::Sender<PathBuf>>,
     pub print: Option<watch::Sender<PathBuf>>,
 }
 
@@ -260,6 +263,11 @@ impl Reload {
 
         if let Some(sender) = &self.appchooser {
             let config = config.appchooser.unwrap_or_default();
+            update_command(sender, config.command.as_deref().unwrap_or(SELECT_COMMAND));
+        }
+
+        if let Some(sender) = &self.email {
+            let config = config.email.unwrap_or_default();
             update_command(sender, config.command.as_deref().unwrap_or(SELECT_COMMAND));
         }
 

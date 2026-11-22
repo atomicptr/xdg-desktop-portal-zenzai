@@ -1,7 +1,12 @@
 { lib }:
 cfg:
 let
-  inherit (cfg.portals) settings appchooser print;
+  inherit (cfg.portals)
+    settings
+    appchooser
+    email
+    print
+    ;
 in
 lib.filterAttrsRecursive (_: value: value != null) {
   inherit (cfg) terminal;
@@ -23,6 +28,12 @@ lib.filterAttrsRecursive (_: value: value != null) {
       else
         lib.getExe' cfg.package "zenzai-app-select";
     inherit (appchooser) defaults;
+  };
+
+  email = {
+    enabled = email.enable;
+    command =
+      if email.command != null then email.command else lib.getExe' cfg.package "zenzai-app-select";
   };
 
   print = {

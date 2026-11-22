@@ -34,7 +34,7 @@ impl From<Contrast> for u32 {
     }
 }
 
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Debug, Deserialize)]
 #[serde(untagged)]
 pub enum SettingsMapValue {
     String(String),
@@ -43,13 +43,13 @@ pub enum SettingsMapValue {
     Float(f64),
 }
 
-impl From<&SettingsMapValue> for Variant<'static> {
-    fn from(value: &SettingsMapValue) -> Self {
+impl From<SettingsMapValue> for Variant<'static> {
+    fn from(value: SettingsMapValue) -> Self {
         match value {
-            SettingsMapValue::String(value) => Variant::from(value.clone()),
-            SettingsMapValue::Int(value) => Variant::from(*value),
-            SettingsMapValue::Bool(value) => Variant::from(*value),
-            SettingsMapValue::Float(value) => Variant::from(*value),
+            SettingsMapValue::String(value) => Variant::from(value),
+            SettingsMapValue::Int(value) => Variant::from(value),
+            SettingsMapValue::Bool(value) => Variant::from(value),
+            SettingsMapValue::Float(value) => Variant::from(value),
         }
     }
 }

@@ -3,6 +3,7 @@ use config::Config;
 use constants::{APP_VERSION, DBUS_NAME, DBUS_PATH};
 use portals::{
     appchooser::service::{AppChooserService, SELECT_COMMAND},
+    email::EmailService,
     notification::service::NotificationService,
     print::{dialog::DIALOG_COMMAND, service::PrintService},
     settings::service::SettingsService,
@@ -22,7 +23,7 @@ mod utils;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    // targets are module paths, they use the crate name with underscores
+    // Tracing targets use the underscored crate name.
     let level = if cfg!(debug_assertions) {
         "debug"
     } else {
@@ -42,6 +43,7 @@ async fn main() -> Result<()> {
     let mut reload = Reload {
         enabled: EnabledPortals::from(&config),
         appchooser: None,
+        email: None,
         print: None,
     };
 
@@ -74,6 +76,29 @@ async fn main() -> Result<()> {
                 conn = conn.serve_at(DBUS_PATH, AppChooserService { command });
             }
             Err(err) => tracing::error!("AppChooser disabled, could not find {command:?}: {err}"),
+        }
+    }
+
+    if let Some(config) = config.email
+        && config.enabled
+    {
+        let command = config.command.as_deref().unwrap_or(SELECT_COMMAND);
+
+        match which(command) {
+            Ok(command) => {
+                any_enabled = true;
+
+                tracing::info!("portal: org.freedesktop.portal.Email enabled!");
+                let (sender, command) = watch::channel(command);
+                reload.email = Some(sender);
+                conn = conn.serve_at(
+                    DBUS_PATH,
+                    EmailService {
+                        chooser: AppChooserService { command },
+                    },
+                );
+            }
+            Err(err) => tracing::error!("Email disabled, could not find {command:?}: {err}"),
         }
     }
 

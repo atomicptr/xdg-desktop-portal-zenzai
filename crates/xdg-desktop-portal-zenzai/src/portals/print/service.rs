@@ -33,17 +33,21 @@ impl PrintService {
         }
     }
 
-    // the lock is never held across an await, a poisoned lock only means a panicked call
+    // Recover poisoned locks; no token operation holds the lock across an await.
     fn tokens(&self) -> MutexGuard<'_, Tokens> {
         self.tokens.lock().unwrap_or_else(PoisonError::into_inner)
     }
 
-    async fn run_dialog(&self, request: &PrintRequest) -> Result<Outcome, u32> {
+    async fn run_dialog(&self, request: &PrintRequest) -> Result<PrintResponse, u32> {
         let command = self.command.borrow().clone();
-        dialog::run(&command, request).await.map_err(|err| {
-            tracing::error!("print dialog: {err:#}");
-            RESPONSE_OTHER
-        })
+        match dialog::run(&command, request).await {
+            Ok(Outcome::Accepted(response)) => Ok(response),
+            Ok(Outcome::Cancelled) => Err(RESPONSE_CANCELLED),
+            Err(err) => {
+                tracing::error!("print dialog: {err:#}");
+                Err(RESPONSE_OTHER)
+            }
+        }
     }
 }
 
@@ -78,8 +82,7 @@ impl PrintService {
         };
 
         let response = match self.run_dialog(&request).await {
-            Ok(Outcome::Accepted(response)) => response,
-            Ok(Outcome::Cancelled) => return Ok((RESPONSE_CANCELLED, HashMap::new())),
+            Ok(response) => response,
             Err(code) => return Ok((code, HashMap::new())),
         };
 
@@ -139,11 +142,11 @@ impl PrintService {
             ..Default::default()
         };
 
-        match self.run_dialog(&request).await {
-            Ok(Outcome::Accepted(_)) => Ok((RESPONSE_SUCCESS, HashMap::new())),
-            Ok(Outcome::Cancelled) => Ok((RESPONSE_CANCELLED, HashMap::new())),
-            Err(code) => Ok((code, HashMap::new())),
-        }
+        let code = self
+            .run_dialog(&request)
+            .await
+            .map_or_else(|code| code, |_| RESPONSE_SUCCESS);
+        Ok((code, HashMap::new()))
     }
 }
 

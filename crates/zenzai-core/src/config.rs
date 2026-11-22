@@ -7,7 +7,7 @@ const APP_NAME: &str = "xdg-desktop-portal-zenzai";
 const CONFIG_FILE_NAME: &str = "config.toml";
 const DEFAULT_CONFIG_DIRS: &str = "/etc/xdg";
 
-// $XDG_CONFIG_HOME first, then $XDG_CONFIG_DIRS where e.g. the NixOS module puts its file
+// User config takes precedence over $XDG_CONFIG_DIRS.
 pub fn config_paths() -> Vec<PathBuf> {
     let config_dirs = env::var("XDG_CONFIG_DIRS")
         .ok()
@@ -21,13 +21,9 @@ pub fn config_paths() -> Vec<PathBuf> {
         .collect()
 }
 
-fn config_file() -> Option<PathBuf> {
-    config_paths().into_iter().find(|path| path.is_file())
-}
-
-// a missing file means defaults, a broken one is an error
+// Missing config uses defaults; invalid config is an error.
 pub fn load_or_default<T: DeserializeOwned + Default>() -> Result<T> {
-    let Some(path) = config_file() else {
+    let Some(path) = config_paths().into_iter().find(|path| path.is_file()) else {
         return Ok(T::default());
     };
 
@@ -39,7 +35,7 @@ fn state_file(name: &str) -> Option<PathBuf> {
     dirs::state_dir().map(|dir| dir.join(APP_NAME).join(name))
 }
 
-// state is only a convenience, unreadable state falls back to defaults
+// Unreadable state falls back to defaults.
 pub fn load_state<T: DeserializeOwned + Default>(name: &str) -> T {
     state_file(name)
         .and_then(|path| fs::read_to_string(path).ok())

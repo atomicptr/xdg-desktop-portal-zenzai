@@ -10,26 +10,24 @@ let
       inherit description;
     };
 
-  commandOptions = {
-    command = mkOption {
-      type = types.str;
-      description = "Executable to run.";
-    };
+  command = types.submodule {
+    options = {
+      command = mkOption {
+        type = types.str;
+        description = "Executable to run.";
+      };
 
-    arguments = mkOption {
-      type = types.listOf types.str;
-      default = [ ];
-      description = ''
-        Arguments passed to the executable. Each occurrence of `%file%` is replaced with the
-        local file path, or the original URI for non-local resources, including within an
-        argument such as `--input=%file%`. Without this placeholder, the file is appended
-        as the last argument. Each list element remains one argument, with no shell expansion
-        or word splitting, placeholder-like text in the file path is not expanded again.
-      '';
+      arguments = mkOption {
+        type = types.listOf types.str;
+        default = [ ];
+        description = ''
+          Arguments without shell expansion or word splitting. Each `%file%` is replaced
+          once with the local path or non-local URI, including in `--input=%file%`.
+          Without a placeholder, the file is appended as the last argument.
+        '';
+      };
     };
   };
-
-  command = types.submodule { options = commandOptions; };
   target = types.either types.str command;
 in
 {
@@ -118,6 +116,12 @@ in
           ending in `*`, where the most specific pattern wins, then remembered exact matches.
         '';
       };
+    };
+
+    email = {
+      enable = mkEnableOption "the Email portal";
+
+      command = nullOr types.str "Email application selector executable, defaults to the packaged zenzai-app-select.";
     };
 
     print = {

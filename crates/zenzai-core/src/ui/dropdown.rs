@@ -16,7 +16,6 @@ use iced::{
     },
 };
 
-// smaller lists are quicker to scan than to search
 const SEARCH_THRESHOLD: usize = 5;
 const SEARCH_PLACEHOLDER: &str = "Search";
 const SEARCH_ID: Id = Id::new("zenzai-dropdown-search");
@@ -33,12 +32,12 @@ const SCROLLBAR_WIDTH: f32 = 10.0;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Search {
-    // offered once the list is long enough to be tedious to scan
+    // Search only long lists.
     Auto,
     Off,
 }
 
-// the open menu, at most one exists at a time
+// At most one menu is open.
 #[derive(Debug, Clone)]
 pub struct Menu {
     id: &'static str,
@@ -48,7 +47,7 @@ pub struct Menu {
 
 #[derive(Debug, Clone)]
 pub enum Action {
-    // the offsets scroll the highlighted entry into view
+    // Offsets keep the highlighted entry visible.
     Open(&'static str, usize, f32),
     Close,
     Search(String),
@@ -92,7 +91,6 @@ fn scroll_to<Message: Send + 'static>(offset: f32) -> Task<Message> {
     operation::snap_to(LIST_ID, RelativeOffset { x: 0.0, y: offset })
 }
 
-// scrolling proportionally to the index always keeps the entry inside the viewport
 fn offset(index: usize, count: usize) -> f32 {
     match count {
         0 | 1 => 0.0,
@@ -223,7 +221,7 @@ struct Dropdown<'a, Message> {
 
 struct Open<'a, Message> {
     content: Element<'a, Message>,
-    // every label, not only the matches, so the menu keeps its width while searching
+    // Keep width stable while filtering.
     labels: Vec<String>,
     keys: Keys<Message>,
 }
@@ -357,7 +355,6 @@ struct Overlay<'a, 'b, Message> {
 }
 
 impl<Message: Clone> overlay::Overlay<Message, Theme, Renderer> for Overlay<'_, '_, Message> {
-    // as wide as the longest entry but at least the anchor, below unless there is more room above
     fn layout(&mut self, renderer: &Renderer, bounds: Size) -> Node {
         let chrome = 2.0 * (f32::from(ITEM_PADDING[1]) + f32::from(MENU_PADDING) + BORDER_WIDTH)
             + SCROLLBAR_WIDTH;
@@ -381,9 +378,10 @@ impl<Message: Clone> overlay::Overlay<Message, Theme, Renderer> for Overlay<'_, 
             &Limits::new(Size::new(width, 0.0), Size::new(width, height)),
         );
 
-        let y = match node.size().height <= below || below >= above {
-            true => self.anchor.y + self.anchor.height + MENU_GAP,
-            false => self.anchor.y - MENU_GAP - node.size().height,
+        let y = if node.size().height <= below || below >= above {
+            self.anchor.y + self.anchor.height + MENU_GAP
+        } else {
+            self.anchor.y - MENU_GAP - node.size().height
         };
 
         let x = self.anchor.x.min(bounds.width - width).max(0.0);
@@ -419,7 +417,7 @@ impl<Message: Clone> overlay::Overlay<Message, Theme, Renderer> for Overlay<'_, 
         clipboard: &mut dyn Clipboard,
         shell: &mut Shell<'_, Message>,
     ) {
-        // handled before the search field sees them, it would otherwise swallow Escape and Enter
+        // Handle before the search field consumes Escape and Enter.
         if let Event::Keyboard(keyboard::Event::KeyPressed {
             key:
                 Key::Named(named @ (Named::Escape | Named::ArrowUp | Named::ArrowDown | Named::Enter)),
@@ -443,7 +441,7 @@ impl<Message: Clone> overlay::Overlay<Message, Theme, Renderer> for Overlay<'_, 
             return;
         }
 
-        // the anchor toggles the menu itself
+        // Let the anchor handle its own clicks.
         if let Event::Mouse(mouse::Event::ButtonPressed(_)) = event
             && !cursor.is_over(layout.bounds())
             && !cursor.is_over(self.anchor)
@@ -477,8 +475,7 @@ impl<Message: Clone> overlay::Overlay<Message, Theme, Renderer> for Overlay<'_, 
             renderer,
         );
 
-        // iced hands the cursor to the widgets below unless the overlay claims it, so the
-        // menu's padding would otherwise let clicks and scrolling through to the form
+        // Claim menu padding to prevent click-through.
         match interaction {
             mouse::Interaction::None if cursor.is_over(layout.bounds()) => mouse::Interaction::Idle,
             _ => interaction,

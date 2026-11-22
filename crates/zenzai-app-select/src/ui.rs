@@ -91,16 +91,7 @@ impl State {
 
         self.visible = self.scope().iter().copied().filter(matches).collect();
 
-        if self
-            .selected
-            .is_some_and(|index| !self.visible.contains(&index))
-        {
-            self.selected = None;
-        }
-
-        if !self.can_remember() {
-            self.remember = false;
-        }
+        self.select(self.selected);
     }
 
     fn can_remember(&self) -> bool {
@@ -109,8 +100,8 @@ impl State {
             .is_some_and(|app| app.id.is_some())
     }
 
-    fn select(&mut self, index: usize) {
-        self.selected = self.visible.contains(&index).then_some(index);
+    fn select(&mut self, index: Option<usize>) {
+        self.selected = index.filter(|index| self.visible.contains(index));
 
         if !self.can_remember() {
             self.remember = false;
@@ -149,7 +140,7 @@ impl State {
             (None, Direction::Down) => 0,
         };
 
-        self.select(self.visible[position]);
+        self.select(Some(self.visible[position]));
 
         // Fixed-height rows keep the selected entry visible at this relative offset.
         operation::snap_to(
@@ -273,11 +264,11 @@ fn update(state: &mut State, message: Message) -> Task<Message> {
             Task::none()
         }
         Message::Select(index) => {
-            state.select(index);
+            state.select(Some(index));
             Task::none()
         }
         Message::Open(index) => {
-            state.select(index);
+            state.select(Some(index));
             state.accept()
         }
         Message::Navigate(direction) => state.navigate(direction),

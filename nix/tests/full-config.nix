@@ -35,6 +35,11 @@
     };
   };
 
+  portals.email = {
+    enable = true;
+    command = "zenzai-app-select";
+  };
+
   portals.print = {
     enable = true;
     command = "zenzai-dialog-print";

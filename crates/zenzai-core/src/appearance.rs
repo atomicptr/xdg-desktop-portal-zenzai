@@ -20,7 +20,7 @@ impl From<ColorScheme> for u32 {
     }
 }
 
-// `{ r, g, b }` is the format used before 0.4.0, keep existing configs working
+// Keep the pre-0.4.0 RGB config format.
 #[derive(Debug, Deserialize, Clone)]
 #[serde(untagged)]
 pub enum AccentColor {
@@ -37,7 +37,6 @@ impl AccentColor {
     }
 }
 
-// the parts of the shared config file that GUI tools care about
 #[derive(Debug, Default, Deserialize)]
 pub struct UiConfig {
     #[serde(default)]

@@ -60,19 +60,19 @@ pub struct Cli {
 }
 
 impl Cli {
-    pub fn apply(&self, dialog: &mut Dialog) {
+    pub fn apply(self, dialog: &mut Dialog) {
         let settings = &mut dialog.settings;
 
-        settings.paper = self.paper.clone().or(settings.paper.take());
+        settings.paper = self.paper.or(settings.paper.take());
         settings.orientation = self.orientation.unwrap_or(settings.orientation);
         settings.copies = self.copies.unwrap_or(settings.copies);
         settings.duplex = self.duplex.unwrap_or(settings.duplex);
         settings.color = self.color.unwrap_or(settings.color);
         settings.number_up = self.number_up.unwrap_or(settings.number_up);
 
-        if let Some(pages) = &self.pages {
+        if let Some(pages) = self.pages {
             settings.pages = PageSelection::Ranges;
-            settings.ranges = pages.clone();
+            settings.ranges = pages;
         }
 
         match self.printer.as_deref() {
@@ -81,8 +81,8 @@ impl Cli {
             None => {}
         }
 
-        if let Some(output) = &self.output {
-            dialog.output = output.clone();
+        if let Some(output) = self.output {
+            dialog.output = output;
         }
     }
 }

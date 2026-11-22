@@ -7,7 +7,7 @@ use std::{
     sync::Arc,
 };
 
-use anyhow::{Context, Result, ensure};
+use anyhow::{Context, Result, anyhow, ensure};
 use clap::Parser;
 use serde::Deserialize;
 use url::Url;
@@ -20,6 +20,7 @@ use zenzai_core::{
 use apps::App;
 
 mod apps;
+mod email;
 mod mimeapps;
 mod ui;
 
@@ -78,9 +79,9 @@ fn run(cli: Cli) -> Result<bool> {
         AppSelectRequest {
             content_type: content_type(&path)?,
             uri: Url::from_file_path(path)
-                .map_err(|()| anyhow::anyhow!("invalid file path"))?
+                .map_err(|()| anyhow!("invalid file path"))?
                 .to_string(),
-            choices: Vec::new(),
+            ..Default::default()
         }
     };
 
@@ -94,22 +95,22 @@ fn run(cli: Cli) -> Result<bool> {
         |path| path.to_string_lossy().into_owned(),
     );
     let mapping = config.appchooser.mapping(&request.content_type);
-    let mut apps = Vec::new();
     if !cli.force
         && let Some(DefaultMapping::One(target @ Target::Command(_))) = mapping
     {
+        let mut apps = Vec::new();
         let index = apps::resolve(target, &mut apps, &file)?;
-        apps[index].launch(&terminal)?;
+        apps[index].launch(&terminal, &request)?;
         return Ok(true);
     }
 
-    apps = apps::discover(&request.uri);
+    let mut apps = apps::discover(&request.uri);
 
     if !cli.force {
         if let Some(DefaultMapping::One(target)) = mapping {
             match apps::resolve(target, &mut apps, &file) {
                 Ok(index) => {
-                    apps[index].launch(&terminal)?;
+                    apps[index].launch(&terminal, &request)?;
                     return Ok(true);
                 }
                 Err(err) => tracing::warn!("configured default is unavailable: {err:#}"),
@@ -134,7 +135,7 @@ fn run(cli: Cli) -> Result<bool> {
                     }
                 });
             if let Some(index) = index {
-                apps[index].launch(&terminal)?;
+                apps[index].launch(&terminal, &request)?;
                 return Ok(true);
             }
         }
@@ -171,13 +172,17 @@ fn run(cli: Cli) -> Result<bool> {
         indices
     };
 
-    let title = local
-        .as_ref()
-        .and_then(|path| path.file_name())
-        .map_or_else(
-            || request.uri.clone(),
-            |name| name.to_string_lossy().into_owned(),
-        );
+    let title = if request.email.is_some() {
+        "Choose an email application".to_string()
+    } else {
+        local
+            .as_ref()
+            .and_then(|path| path.file_name())
+            .map_or_else(
+                || request.uri.clone(),
+                |name| name.to_string_lossy().into_owned(),
+            )
+    };
     let apps: Arc<[App]> = apps.into();
     let Some((index, remember)) = ui::run(apps.clone(), suggested, title, mapping.is_some())?
     else {
@@ -185,7 +190,7 @@ fn run(cli: Cli) -> Result<bool> {
     };
 
     let app = &apps[index];
-    app.launch(&terminal)?;
+    app.launch(&terminal, &request)?;
 
     if remember && let Some(id) = &app.id {
         if let Err(err) = remember_app(&request.content_type, id) {

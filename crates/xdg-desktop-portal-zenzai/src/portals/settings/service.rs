@@ -71,12 +71,13 @@ impl SettingsService {
 
         config
             .dict
-            .iter()
+            .into_iter()
             .map(|(namespace, values)| {
                 let values = values
-                    .iter()
-                    .map(|(key, value)| (key.clone(), value.into()));
-                (namespace.clone(), values.collect())
+                    .into_iter()
+                    .map(|(key, value)| (key, value.into()))
+                    .collect();
+                (namespace, values)
             })
             .chain([(NAMESPACE.to_string(), appearance)])
             .collect()

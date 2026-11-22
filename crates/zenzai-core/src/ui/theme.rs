@@ -33,7 +33,6 @@ fn iced_color(color: &csscolorparser::Color) -> Color {
     Color::from_rgba(color.r, color.g, color.b, color.a)
 }
 
-// matches theme names case-insensitively, using dashes instead of spaces ("catppuccin-mocha")
 fn builtin_theme(name: &str) -> Option<Theme> {
     let wanted = name.trim().to_lowercase().replace([' ', '_'], "-");
 

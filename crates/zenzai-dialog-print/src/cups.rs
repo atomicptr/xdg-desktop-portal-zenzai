@@ -34,8 +34,7 @@ const ERROR_SUFFIX: &str = "-error";
 const CONNECT_TIMEOUT_MS: i32 = 5000;
 const CUSTOM_RANGE_PREFIXES: [&str; 2] = ["custom_min_", "custom_max_"];
 
-// common PWG media types in the order they are listed, CUPS maps the matching driver choices
-// to these keywords and translates them, anything else is a driver specific name
+// CUPS maps and localizes standard PWG media types; other keywords are driver-specific.
 const STANDARD_MEDIA_TYPES: [&str; 18] = [
     "auto",
     "stationery",
@@ -125,8 +124,7 @@ pub fn capabilities(name: &str) -> Result<Capabilities> {
     let dest = get_destination(name)?;
     let info = dest.get_detailed_info(ptr::null_mut())?;
 
-    // cups_rs leaks the raw destination it hands out, fetch it once per query,
-    // acceptable since the dialog is short-lived
+    // cups_rs leaks each raw destination, so fetch it only once per query.
     let raw = dest.as_ptr();
 
     // localizing needs a real connection, CUPS returns the raw keyword without one
@@ -163,9 +161,7 @@ pub fn capabilities(name: &str) -> Result<Capabilities> {
             .unwrap_or(STANDARD_MEDIA_TYPES.len())
     });
 
-    // media-supported lists plain size names, the media database names entries after
-    // size, tray and type which is neither readable nor valid as job option
-    // custom_min_/custom_max_ only describe the allowed custom size range
+    // Only media-supported names are valid job options; custom_min_/max_ describe size limits.
     let papers = supported(ipp::MEDIA)
         .iter()
         .filter(|name| {

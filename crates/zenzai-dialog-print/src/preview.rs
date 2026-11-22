@@ -144,9 +144,7 @@ impl Document {
 
         Handle::from_rgba(u32::from(width), u32::from(height), pixels)
     }
-}
 
-impl Document {
     fn page_size_mm(&self, index: Option<&u32>) -> (f64, f64) {
         let (width, height) = index
             .and_then(|index| self.pdf.pages().get(*index as usize))
@@ -184,30 +182,28 @@ fn grid(
     (columns, rows): (usize, usize),
     (width, height): (f64, f64),
     layout: NumberUpLayout,
-) -> Vec<Rect> {
+) -> impl Iterator<Item = Rect> {
     let (cell_width, cell_height) = (width / columns as f64, height / rows as f64);
     let (left_to_right, top_to_bottom, rows_first) = layout.directions();
 
-    (0..count.max(1))
-        .map(|index| {
-            let (column, row) = match rows_first {
-                true => (index % columns, index / columns),
-                false => (index / rows, index % rows),
-            };
+    (0..count.max(1)).map(move |index| {
+        let (column, row) = match rows_first {
+            true => (index % columns, index / columns),
+            false => (index / rows, index % rows),
+        };
 
-            let column = if left_to_right {
-                column
-            } else {
-                columns - 1 - column
-            };
-            let row = if top_to_bottom { row } else { rows - 1 - row };
+        let column = if left_to_right {
+            column
+        } else {
+            columns - 1 - column
+        };
+        let row = if top_to_bottom { row } else { rows - 1 - row };
 
-            Rect::new(
-                column as f64 * cell_width,
-                row as f64 * cell_height,
-                (column + 1) as f64 * cell_width,
-                (row + 1) as f64 * cell_height,
-            )
-        })
-        .collect()
+        Rect::new(
+            column as f64 * cell_width,
+            row as f64 * cell_height,
+            (column + 1) as f64 * cell_width,
+            (row + 1) as f64 * cell_height,
+        )
+    })
 }
