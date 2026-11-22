@@ -1,7 +1,6 @@
 {
-  description = "A collection of xdg-desktop-portal implementations for lightweight wayland compositors";
-
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+  description = "A collection of xdg-desktop-portal implementations for lightweight wayland compositors";
 
   outputs =
     { nixpkgs, ... }:
@@ -33,6 +32,7 @@
 
           packages = with pkgs; [
             clippy
+            just
             rust-analyzer
             rustfmt
           ];
@@ -49,7 +49,6 @@
       checks = forAllSystems (pkgs: {
         package = package pkgs;
 
-        # Keep generated config aligned with the Rust parser fixture.
         module-config =
           let
             module = lib.evalModules {

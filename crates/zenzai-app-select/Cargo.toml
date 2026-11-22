@@ -27,3 +27,6 @@ tracing-subscriber.workspace = true
 url = "2.5.9"
 which.workspace = true
 zenzai-core = { workspace = true, features = ["ui"] }
+
+[lints]
+workspace = true

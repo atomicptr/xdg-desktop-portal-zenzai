@@ -86,13 +86,15 @@ impl SettingsService {
 
 #[interface(name = "org.freedesktop.impl.portal.Settings")]
 impl SettingsService {
+    // D-Bus properties require an instance receiver even for constant values.
+    #[allow(clippy::unused_self)]
     #[zbus(property, name = "version")]
-    async fn version(&self) -> u32 {
+    fn version(&self) -> u32 {
         1
     }
 
-    async fn read(&self, namespace: &str, key: &str) -> fdo::Result<Variant<'static>> {
-        tracing::debug!("Read: {namespace}.{key}");
+    fn read(&self, namespace: &str, key: &str) -> fdo::Result<Variant<'static>> {
+        tracing::debug!(namespace, key, "settings read");
 
         self.values
             .get(namespace)
@@ -101,19 +103,20 @@ impl SettingsService {
             .ok_or_else(|| fdo::Error::Failed(format!("zenzai: unknown key {namespace}.{key}")))
     }
 
-    async fn read_all(&self, namespaces: Vec<&str>) -> fdo::Result<Namespaces> {
-        tracing::debug!("ReadAll: {namespaces:?}");
+    // zbus deserializes the D-Bus array into an owned vector.
+    #[allow(clippy::needless_pass_by_value)]
+    fn read_all(&self, namespaces: Vec<&str>) -> Namespaces {
+        tracing::debug!(?namespaces, "settings read-all");
 
         let wanted = |namespace: &str| {
             namespaces.is_empty() || namespaces.iter().any(|p| matches_glob(p, namespace))
         };
 
-        Ok(self
-            .values
+        self.values
             .iter()
             .filter(|(namespace, _)| wanted(namespace))
             .map(|(namespace, values)| (namespace.clone(), values.clone()))
-            .collect())
+            .collect()
     }
 
     #[zbus(signal)]

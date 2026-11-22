@@ -26,3 +26,6 @@ zenzai-core.workspace = true
 
 [dev-dependencies]
 toml.workspace = true
+
+[lints]
+workspace = true

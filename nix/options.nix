@@ -33,6 +33,8 @@ in
 {
   enable = mkEnableOption "xdg-desktop-portal-zenzai";
 
+  debug = mkEnableOption "debug logging for the portal and companion tools";
+
   package = mkOption {
     type = types.package;
     default = defaultPackage;

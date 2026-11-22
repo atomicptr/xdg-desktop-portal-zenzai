@@ -142,14 +142,11 @@ impl State {
 
         self.select(Some(self.visible[position]));
 
-        // Fixed-height rows keep the selected entry visible at this relative offset.
-        operation::snap_to(
-            LIST_ID,
-            operation::RelativeOffset {
-                x: 0.0,
-                y: position as f32 / last.max(1) as f32,
-            },
-        )
+        // Fixed-height rows need only approximate f32 coordinates to stay visible.
+        #[allow(clippy::cast_precision_loss)]
+        let y = position as f32 / last.max(1) as f32;
+
+        operation::snap_to(LIST_ID, operation::RelativeOffset { x: 0.0, y })
     }
 }
 
@@ -334,7 +331,7 @@ fn view(state: &State) -> Element<'_, Message> {
 
     if state.configured {
         content = content.push(
-            text("Configuration rules override remembered choices.")
+            text("Configured defaults take priority.")
                 .size(12)
                 .style(text::secondary),
         );

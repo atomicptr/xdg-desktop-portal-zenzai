@@ -22,27 +22,30 @@ pub struct EmailService {
 
 #[interface(name = "org.freedesktop.impl.portal.Email")]
 impl EmailService {
+    #[tracing::instrument(level = "debug", skip_all, fields(method = "ComposeEmail", %handle, %app_id))]
     async fn compose_email(
         &self,
-        _handle: ObjectPath<'_>,
-        _app_id: &str,
-        _parent_window: &str,
+        handle: ObjectPath<'_>,
+        app_id: &str,
+        parent_window: &str,
         options: HashMap<&str, Variant<'_>>,
     ) -> (u32, HashMap<String, OwnedVariant>) {
+        tracing::debug!(option_keys = ?options.keys().collect::<Vec<_>>(), "received email request");
+        let _ = parent_window;
         let result = async {
             let request = request(&options)?;
             self.chooser.choose(&request).await
         }
         .await;
 
-        let response = match result {
-            Ok(response) => response,
-            Err(_) => {
-                // Errors from launchers can contain the complete message URI.
-                tracing::error!("could not compose email");
-                2
-            }
+        let response = if let Ok(response) = result {
+            response
+        } else {
+            // Errors from launchers can contain the complete message URI.
+            tracing::error!("could not compose email");
+            2
         };
+        tracing::debug!(response, "email request completed");
         (response, HashMap::new())
     }
 }

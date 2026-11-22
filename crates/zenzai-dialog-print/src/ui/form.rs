@@ -1,6 +1,6 @@
 use iced::{
     Alignment, ContentFit, Element, Fill, Length,
-    widget::{button, checkbox, column, container, image, row, rule, text, text_input},
+    widget::{Column, button, checkbox, column, container, image, row, rule, text, text_input},
 };
 use zenzai_core::ui::{
     dropdown::{Search, dropdown},
@@ -23,7 +23,7 @@ use super::{
 const FORM_SPACING: u32 = 12;
 const CONTROL_WIDTH: f32 = 240.0;
 const PAGES_PICKER_WIDTH: f32 = 110.0;
-const PAGES_SPACING: u32 = 8;
+const PAGES_SPACING: f32 = 8.0;
 const TITLE_SIZE: u32 = 20;
 const PREVIEW_PADDING: u16 = 12;
 const RANGES_PLACEHOLDER: &str = "e.g. 1-3, 7";
@@ -50,7 +50,9 @@ const LABEL_OPTIONS: &str = "Options";
 const LABEL_REVERSE: &str = "Reverse order";
 const LABEL_COLLATE: &str = "Collate copies";
 const RENDERING: &str = "Rendering…";
-const NO_PREVIEW: &str = "No preview available";
+const PREVIEW_LABEL: &str = "Preview";
+pub(super) const PREVIEW_UNAVAILABLE: &str = "Preview unavailable";
+const INLINE_PREVIEW_HEIGHT: f32 = 320.0;
 const PREVIOUS: &str = "‹";
 const NEXT: &str = "›";
 const FRONT: &str = "front";
@@ -86,6 +88,16 @@ where
 }
 
 pub fn settings(state: &State) -> Element<'_, Message> {
+    let mut form = fields(state);
+
+    if state.compact() {
+        form = form.push(container(preview(state)).height(INLINE_PREVIEW_HEIGHT));
+    }
+
+    form.into()
+}
+
+fn fields(state: &State) -> Column<'_, Message> {
     let current = &state.dialog.settings;
     let caps = state.capabilities.as_ref();
 
@@ -110,7 +122,7 @@ pub fn settings(state: &State) -> Element<'_, Message> {
     }
 
     if !state.page_options_apply() {
-        return form.into();
+        return form;
     }
 
     let orientation = segmented(Orientation::ALL, &current.orientation, |orientation| {
@@ -121,11 +133,15 @@ pub fn settings(state: &State) -> Element<'_, Message> {
         .push(form_row(LABEL_PAGES, pages(state)))
         .push(form_row(
             LABEL_COPIES,
-            stepper(current.copies, 1, MAX_COPIES, |copies| {
+            container(stepper(current.copies, 1, MAX_COPIES, |copies| {
                 edit(state, move |s| s.copies = copies)
-            }),
+            }))
+            .width(CONTROL_WIDTH),
         ))
-        .push(form_row(LABEL_ORIENTATION, orientation));
+        .push(form_row(
+            LABEL_ORIENTATION,
+            container(orientation).width(CONTROL_WIDTH),
+        ));
 
     if caps.is_some_and(|caps| caps.color) {
         form = form.push(form_row(
@@ -140,36 +156,41 @@ pub fn settings(state: &State) -> Element<'_, Message> {
         ));
     }
 
-    let arrow = match state.more_settings {
-        true => EXPANDED,
-        false => COLLAPSED,
-    };
-
-    let toggle = button(form_row(
-        MORE_SETTINGS,
-        container(text(arrow)).align_right(CONTROL_WIDTH),
-    ))
-    .style(button::text)
-    .padding(0)
-    .on_press(Message::ToggleMoreSettings);
-
-    form = form.push(rule::horizontal(1)).push(toggle);
+    form = form.push(rule::horizontal(1)).push(more_toggle(state));
 
     if state.more_settings {
         form = form.push(more_settings(state));
     }
 
-    form.into()
+    form
+}
+
+fn more_toggle(state: &State) -> Element<'_, Message> {
+    let arrow = if state.more_settings {
+        EXPANDED
+    } else {
+        COLLAPSED
+    };
+
+    button(form_row(
+        MORE_SETTINGS,
+        container(text(arrow)).align_right(CONTROL_WIDTH),
+    ))
+    .style(button::text)
+    .padding(0)
+    .on_press(Message::ToggleMoreSettings)
+    .into()
 }
 
 fn output(state: &State) -> Element<'_, Message> {
     let display = output::display(&state.dialog.output);
-    let path: Element<'_, Message> = match state.manual_output {
-        true => text_input(OUTPUT_PLACEHOLDER, &display)
+    let path: Element<'_, Message> = if state.manual_output {
+        text_input(OUTPUT_PLACEHOLDER, &display)
             .on_input(Message::OutputTyped)
             .width(Fill)
-            .into(),
-        false => text(display).width(Fill).into(),
+            .into()
+    } else {
+        text(display).width(Fill).into()
     };
 
     let choose = button(text(CHOOSE_LABEL))
@@ -206,17 +227,22 @@ fn pages(state: &State) -> Element<'_, Message> {
             Message::Dropdown,
             |pages| edit(state, move |s| s.pages = pages),
         ))
-        .width(PAGES_PICKER_WIDTH)
+        .width(if current.pages == PageSelection::Ranges {
+            PAGES_PICKER_WIDTH
+        } else {
+            CONTROL_WIDTH
+        })
     ]
     .spacing(PAGES_SPACING)
-    .align_y(Alignment::Center);
+    .align_y(Alignment::Center)
+    .width(CONTROL_WIDTH);
 
     if current.pages == PageSelection::Ranges {
         pages = pages.push(
             text_input(RANGES_PLACEHOLDER, &current.ranges)
                 .on_input(move |ranges| edit(state, move |s| s.ranges = ranges))
                 .width(Length::Fixed(
-                    CONTROL_WIDTH - PAGES_PICKER_WIDTH - PAGES_SPACING as f32,
+                    CONTROL_WIDTH - PAGES_PICKER_WIDTH - PAGES_SPACING,
                 )),
         );
     }
@@ -314,9 +340,10 @@ fn more_settings(state: &State) -> Element<'_, Message> {
     if state.dialog.document.is_none() {
         form = form.push(form_row(
             LABEL_SCALE,
-            stepper(current.scale, MIN_SCALE, MAX_SCALE, |scale| {
+            container(stepper(current.scale, MIN_SCALE, MAX_SCALE, |scale| {
                 edit(state, move |s| s.scale = scale)
-            }),
+            }))
+            .width(CONTROL_WIDTH),
         ));
     }
 
@@ -348,15 +375,36 @@ fn more_settings(state: &State) -> Element<'_, Message> {
 pub fn preview(state: &State) -> Element<'_, Message> {
     let sides = state.sides();
 
-    let sheet: Element<'_, Message> = match state.preview(&sides) {
+    let mut sheet: Element<'_, Message> = match state.preview(&sides) {
         Some(Preview::Ready(handle)) => image(handle.clone())
             .content_fit(ContentFit::Contain)
             .width(Fill)
             .height(Fill)
             .into(),
         Some(Preview::Rendering) => text(RENDERING).style(text::secondary).into(),
-        Some(Preview::Failed) | None => text(NO_PREVIEW).style(text::secondary).into(),
+        Some(Preview::Failed) | None => text(PREVIEW_UNAVAILABLE).style(text::secondary).into(),
     };
+
+    if state.can_preview() {
+        sheet = column![
+            sheet,
+            button(text(PREVIEW_LABEL))
+                .style(button::secondary)
+                .on_press_maybe(state.can_accept().then_some(Message::RequestPreview)),
+        ]
+        .spacing(FORM_SPACING)
+        .align_x(Alignment::Center)
+        .into();
+    }
+
+    let sheet = container(sheet)
+        .center(Fill)
+        .padding(PREVIEW_PADDING)
+        .style(container::rounded_box);
+
+    if sides.is_empty() {
+        return sheet.into();
+    }
 
     let side = state.preview_side;
 
@@ -372,15 +420,9 @@ pub fn preview(state: &State) -> Element<'_, Message> {
     .spacing(PAGES_SPACING)
     .align_y(Alignment::Center);
 
-    column![
-        container(sheet)
-            .center(Fill)
-            .padding(PREVIEW_PADDING)
-            .style(container::rounded_box),
-        container(navigation).center_x(Fill),
-    ]
-    .spacing(PAGES_SPACING)
-    .into()
+    column![sheet, container(navigation).center_x(Fill),]
+        .spacing(PAGES_SPACING)
+        .into()
 }
 
 fn side_label(state: &State, side: usize, count: usize) -> String {

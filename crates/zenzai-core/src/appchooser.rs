@@ -23,6 +23,7 @@ impl Default for AppChooserConfig {
 }
 
 impl AppChooserConfig {
+    #[must_use]
     pub fn mapping(&self, content_type: &str) -> Option<&DefaultMapping> {
         self.defaults.get(content_type).or_else(|| {
             self.defaults
@@ -68,6 +69,7 @@ pub enum TerminalName {
 }
 
 impl TerminalName {
+    #[must_use]
     pub fn as_str(&self) -> &str {
         match self {
             Self::Name(name) | Self::Custom { custom: name } => name,

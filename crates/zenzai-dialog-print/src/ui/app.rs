@@ -3,20 +3,23 @@ use std::{
     fmt,
     path::PathBuf,
     sync::{Arc, Mutex},
+    thread,
 };
 
 use anyhow::Result;
 use iced::{
-    Element, Fill, FillPortion, Font, Size, Subscription, Task, keyboard,
-    widget::{column, container, image, row, rule, scrollable, text},
+    Alignment, Element, Fill, FillPortion, Font, Size, Subscription, Task, keyboard,
+    widget::{button, column, container, image, row, rule, scrollable, text},
     window,
 };
+use tokio::sync::oneshot;
 use zenzai_core::{
     appearance::UiConfig,
     config,
+    ipc::PrintRequest,
     ui::{
         dropdown, theme,
-        widgets::{self, PANE_PADDING, PANE_SPACING},
+        widgets::{PANE_PADDING, PANE_SPACING},
     },
 };
 
@@ -31,9 +34,14 @@ use super::{form, output};
 
 const APP_ID: &str = "zenzai-dialog-print";
 const WINDOW_SIZE: Size = Size::new(960.0, 620.0);
+const COMPACT_WIDTH: f32 = 850.0;
+const COMPACT_HEIGHT: f32 = 450.0;
 const DEFAULT_ACCEPT_LABEL: &str = "Print";
 const SAVE_ACCEPT_LABEL: &str = "Save";
 const CANCEL_LABEL: &str = "Cancel";
+const WAITING_FOR_DOCUMENT: &str = "Preparing preview…";
+const ACTION_SPACING: u32 = 8;
+const PREVIEW_TITLE_SIZE: u32 = 20;
 const SAVE_AS_PDF_LABEL: &str = "Save as PDF";
 const NO_PRINTERS: &str = "No printers found";
 const NOT_ACCEPTING: &str = "Printer is not accepting jobs";
@@ -43,6 +51,8 @@ const PERCENT: f64 = 100.0;
 // Keep recently viewed sides to avoid re-rendering during navigation.
 const PREVIEW_CACHE_SIZE: usize = 32;
 
+// These are independent capabilities supplied by the printing application.
+#[allow(clippy::struct_excessive_bools)]
 #[derive(Clone)]
 pub struct Dialog {
     pub title: String,
@@ -71,6 +81,33 @@ pub enum Outcome {
     },
 }
 
+#[derive(Clone)]
+pub struct Completion {
+    pub outcome: Outcome,
+    pub request: Option<PrintRequest>,
+}
+
+#[derive(Clone)]
+pub struct PreviewDocument {
+    request: PrintRequest,
+    document: Option<Arc<Document>>,
+}
+
+impl fmt::Debug for PreviewDocument {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("PreviewDocument")
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Phase {
+    Settings,
+    Waiting,
+    Preview,
+    WithoutPreview,
+    Failed,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Destination {
     Printer(Printer),
@@ -95,6 +132,7 @@ pub enum Preview {
 
 #[derive(Debug, Clone)]
 pub enum Message {
+    Resized(Size),
     Printers(Result<Vec<Printer>, String>),
     Capabilities(String, Result<Capabilities, String>),
     SelectDestination(Destination),
@@ -106,12 +144,15 @@ pub enum Message {
     OutputTyped(String),
     PreviewSide(usize),
     PreviewRendered(usize, SheetSpec, Preview),
+    RequestPreview,
+    PreviewDocument(Result<PreviewDocument, String>),
     Accept,
     Cancel,
 }
 
 pub struct State {
     pub(super) dialog: Dialog,
+    pub(super) window_size: Size,
     pub(super) more_settings: bool,
     pub(super) menu: Option<dropdown::Menu>,
     pub(super) destinations: Vec<Destination>,
@@ -124,17 +165,22 @@ pub struct State {
     pub(super) manual_output: bool,
     // A side's cached preview is valid only for its stored spec.
     previews: HashMap<usize, (SheetSpec, Preview)>,
-    outcome: Arc<Mutex<Outcome>>,
+    outcome: Arc<Mutex<Completion>>,
+    portal_request: Option<PrintRequest>,
+    phase: Phase,
 }
 
 impl State {
+    pub(super) fn compact(&self) -> bool {
+        self.window_size.width < COMPACT_WIDTH || self.window_size.height < COMPACT_HEIGHT
+    }
     pub fn is_pdf(&self) -> bool {
         self.selected == Some(Destination::SavePdf)
     }
 
     // Existing PDFs are saved verbatim; only printers or the application apply page options.
     pub fn page_options_apply(&self) -> bool {
-        !(self.is_pdf() && self.dialog.has_document)
+        self.phase == Phase::Settings && !(self.is_pdf() && self.dialog.has_document)
     }
 
     pub fn papers(&self) -> Vec<Paper> {
@@ -150,9 +196,10 @@ impl State {
             return Vec::new();
         };
 
-        match self.page_options_apply() {
-            true => self.dialog.settings.sides(document.page_count()),
-            false => (0..document.page_count()).map(|page| vec![page]).collect(),
+        if self.page_options_apply() {
+            self.dialog.settings.sides(document.page_count())
+        } else {
+            (0..document.page_count()).map(|page| vec![page]).collect()
         }
     }
 
@@ -196,7 +243,17 @@ impl State {
         })
     }
 
-    fn can_accept(&self) -> bool {
+    pub(super) fn can_accept(&self) -> bool {
+        if matches!(self.phase, Phase::Waiting | Phase::Failed) {
+            return false;
+        }
+
+        if self.phase == Phase::Preview
+            && !matches!(self.preview(&self.sides()), Some(Preview::Ready(_)))
+        {
+            return false;
+        }
+
         let valid_destination = match &self.selected {
             Some(Destination::Printer(_)) => self
                 .capabilities
@@ -221,9 +278,35 @@ impl State {
         Some(plural(self.dialog.settings.sheet_count(pages), "sheet"))
     }
 
+    pub(super) fn can_preview(&self) -> bool {
+        self.phase == Phase::Settings
+            && self.portal_request.is_some()
+            && !self.dialog.has_document
+            && self.dialog.allow_pdf
+    }
+
+    fn selection(&self) -> Option<Outcome> {
+        let settings = self.dialog.settings.clone();
+
+        match &self.selected {
+            Some(Destination::Printer(printer)) => Some(Outcome::Print {
+                printer: printer.name.clone(),
+                settings,
+            }),
+            Some(Destination::SavePdf) => Some(Outcome::SavePdf {
+                output: self.dialog.output.clone(),
+                settings,
+            }),
+            None => None,
+        }
+    }
+
     fn finish(&self, outcome: Outcome) -> Task<Message> {
         if let Ok(mut current) = self.outcome.lock() {
-            *current = outcome;
+            *current = Completion {
+                outcome,
+                request: self.portal_request.clone(),
+            };
         }
 
         iced::exit()
@@ -237,21 +320,24 @@ fn plural(count: u32, noun: &str) -> String {
     }
 }
 
-pub fn run(dialog: Dialog) -> Result<Outcome> {
+pub fn run(dialog: Dialog, request: Option<PrintRequest>) -> Result<Completion> {
     let config = config::load_or_default().unwrap_or_else(|err| {
         tracing::warn!("{err:#}");
         UiConfig::default()
     });
 
     let theme = theme(&config);
-    let outcome = Arc::new(Mutex::new(Outcome::Cancelled));
+    let outcome = Arc::new(Mutex::new(Completion {
+        outcome: Outcome::Cancelled,
+        request: None,
+    }));
 
     // iced fonts need a 'static name, the config lives for the whole process anyway
     let font = config.theme.font.map(|name| Font::with_name(name.leak()));
 
     let boot = {
         let outcome = outcome.clone();
-        move || boot(dialog.clone(), outcome.clone())
+        move || boot(dialog.clone(), outcome.clone(), request.clone())
     };
 
     let defaults = iced::Settings::default();
@@ -279,15 +365,22 @@ pub fn run(dialog: Dialog) -> Result<Outcome> {
         })
         .run()?;
 
-    let outcome = outcome
-        .lock()
-        .map(|outcome| outcome.clone())
-        .unwrap_or(Outcome::Cancelled);
+    let outcome = outcome.lock().map_or_else(
+        |_| Completion {
+            outcome: Outcome::Cancelled,
+            request: None,
+        },
+        |outcome| outcome.clone(),
+    );
 
     Ok(outcome)
 }
 
-fn boot(dialog: Dialog, outcome: Arc<Mutex<Outcome>>) -> (State, Task<Message>) {
+fn boot(
+    dialog: Dialog,
+    outcome: Arc<Mutex<Completion>>,
+    portal_request: Option<PrintRequest>,
+) -> (State, Task<Message>) {
     let destinations = dialog
         .allow_pdf
         .then_some(Destination::SavePdf)
@@ -296,6 +389,7 @@ fn boot(dialog: Dialog, outcome: Arc<Mutex<Outcome>>) -> (State, Task<Message>) 
 
     let mut state = State {
         dialog,
+        window_size: WINDOW_SIZE,
         more_settings: false,
         menu: None,
         destinations,
@@ -307,6 +401,8 @@ fn boot(dialog: Dialog, outcome: Arc<Mutex<Outcome>>) -> (State, Task<Message>) 
         manual_output: false,
         previews: HashMap::new(),
         outcome,
+        portal_request,
+        phase: Phase::Settings,
     };
 
     let load_printers = Task::perform(blocking(cups::printers), Message::Printers);
@@ -433,20 +529,39 @@ fn apply_capabilities(settings: &mut JobSettings, caps: &Capabilities) {
 }
 
 fn update(state: &mut State, message: Message) -> Task<Message> {
+    if state.phase != Phase::Settings
+        && !matches!(
+            message,
+            Message::Resized(_)
+                | Message::PreviewSide(_)
+                | Message::PreviewRendered(..)
+                | Message::PreviewDocument(_)
+                | Message::Accept
+                | Message::Cancel
+        )
+    {
+        return Task::none();
+    }
+
     match message {
+        Message::Resized(size) => {
+            state.window_size = size;
+            Task::none()
+        }
         Message::Printers(Ok(printers)) => {
             let wanted = state.dialog.preferred_printer.as_deref();
 
-            let initial = match state.dialog.save_as_pdf && state.dialog.allow_pdf {
-                true => Some(Destination::SavePdf),
-                false => printers
+            let initial = if state.dialog.save_as_pdf && state.dialog.allow_pdf {
+                Some(Destination::SavePdf)
+            } else {
+                printers
                     .iter()
                     .find(|printer| Some(printer.name.as_str()) == wanted)
                     .or_else(|| printers.iter().find(|printer| printer.is_default))
                     .or(printers.first())
                     .cloned()
                     .map(Destination::Printer)
-                    .or_else(|| state.dialog.allow_pdf.then_some(Destination::SavePdf)),
+                    .or_else(|| state.dialog.allow_pdf.then_some(Destination::SavePdf))
             };
 
             if printers.is_empty() {
@@ -465,9 +580,10 @@ fn update(state: &mut State, message: Message) -> Task<Message> {
             tracing::error!("{err}");
             state.error = Some(err);
 
-            match state.dialog.allow_pdf {
-                true => select(state, Destination::SavePdf),
-                false => Task::none(),
+            if state.dialog.allow_pdf {
+                select(state, Destination::SavePdf)
+            } else {
+                Task::none()
             }
         }
         Message::Capabilities(name, result) => {
@@ -543,72 +659,162 @@ fn update(state: &mut State, message: Message) -> Task<Message> {
             if let Some((known, entry)) = state.previews.get_mut(&side)
                 && *known == spec
             {
+                if state.phase == Phase::Preview && matches!(preview, Preview::Failed) {
+                    state.phase = Phase::WithoutPreview;
+                }
+
                 *entry = preview;
             }
 
             Task::none()
         }
+        Message::RequestPreview => {
+            if !state.can_preview() || !state.can_accept() {
+                return Task::none();
+            }
+
+            let Some(request) = state.portal_request.clone() else {
+                return Task::none();
+            };
+            let Some(outcome) = state.selection() else {
+                return Task::none();
+            };
+
+            state.phase = Phase::Waiting;
+            state.menu = None;
+
+            Task::perform(preview_document(request, outcome), Message::PreviewDocument)
+        }
+        Message::PreviewDocument(result) => match result {
+            Ok(preview) => {
+                state.portal_request = Some(preview.request);
+                state.phase = if preview.document.is_some() {
+                    Phase::Preview
+                } else {
+                    Phase::WithoutPreview
+                };
+                state.dialog.document = preview.document;
+                state.dialog.has_document = true;
+                state.preview_side = 0;
+                state.previews.clear();
+                render_previews(state)
+            }
+            Err(err) => {
+                tracing::warn!("print preview failed: {err}");
+                state.error = Some(err);
+                state.phase = Phase::Failed;
+                Task::none()
+            }
+        },
         Message::Accept => {
             if !state.can_accept() {
                 return Task::none();
             }
 
-            let settings = state.dialog.settings.clone();
-
-            let outcome = match &state.selected {
-                Some(Destination::Printer(printer)) => Outcome::Print {
-                    printer: printer.name.clone(),
-                    settings,
-                },
-                Some(Destination::SavePdf) => Outcome::SavePdf {
-                    output: state.dialog.output.clone(),
-                    settings,
-                },
-                None => return Task::none(),
-            };
-
-            state.finish(outcome)
+            state
+                .selection()
+                .map_or_else(Task::none, |outcome| state.finish(outcome))
         }
         Message::Cancel => state.finish(Outcome::Cancelled),
     }
 }
 
+async fn preview_document(
+    request: PrintRequest,
+    outcome: Outcome,
+) -> Result<PreviewDocument, String> {
+    let (send, receive) = oneshot::channel();
+
+    // A blocked stdin reader must not prevent Iced's Tokio runtime from shutting down.
+    thread::Builder::new()
+        .name("print-preview".to_string())
+        .spawn(move || {
+            let result: Result<PreviewDocument> = (|| {
+                let request = crate::preview_request(&request, &outcome)?;
+                let dialog = crate::dialog(&request)?;
+                let document = dialog.document.filter(|document| document.page_count() > 0);
+
+                Ok(PreviewDocument { request, document })
+            })();
+            let _ = send.send(result.map_err(|err| format!("{err:#}")));
+        })
+        .map_err(|err| err.to_string())?;
+
+    receive.await.map_err(|err| err.to_string())?
+}
+
 fn subscription(_state: &State) -> Subscription<Message> {
-    keyboard::listen().filter_map(|event| match event {
-        keyboard::Event::KeyPressed {
-            key: keyboard::Key::Named(keyboard::key::Named::Escape),
-            ..
-        } => Some(Message::Cancel),
-        keyboard::Event::KeyPressed {
-            key: keyboard::Key::Named(keyboard::key::Named::Enter),
-            ..
-        } => Some(Message::Accept),
-        _ => None,
-    })
+    Subscription::batch([
+        window::resize_events().map(|(_, size)| Message::Resized(size)),
+        keyboard::listen().filter_map(|event| match event {
+            keyboard::Event::KeyPressed {
+                key: keyboard::Key::Named(keyboard::key::Named::Escape),
+                ..
+            } => Some(Message::Cancel),
+            keyboard::Event::KeyPressed {
+                key: keyboard::Key::Named(keyboard::key::Named::Enter),
+                ..
+            } => Some(Message::Accept),
+            _ => None,
+        }),
+    ])
 }
 
 fn view(state: &State) -> Element<'_, Message> {
-    let accept_label = match (&state.dialog.accept_label, state.is_pdf()) {
-        (_, true) => SAVE_ACCEPT_LABEL,
-        (Some(label), false) => label.as_str(),
-        (None, false) => DEFAULT_ACCEPT_LABEL,
+    let accept_label = match (state.phase, &state.dialog.accept_label, state.is_pdf()) {
+        (_, _, true) => SAVE_ACCEPT_LABEL,
+        (Phase::Settings, Some(label), false) => label.as_str(),
+        _ => DEFAULT_ACCEPT_LABEL,
     };
 
-    let content = row![
-        container(form::preview(state)).width(FillPortion(1)),
-        scrollable(container(form::settings(state)).padding(SETTINGS_PADDING))
-            .width(FillPortion(1))
-            .height(Fill),
-    ]
-    .spacing(PANE_SPACING);
+    if state.phase != Phase::Settings {
+        let preview: Element<'_, Message> = if state.phase == Phase::Waiting {
+            container(text(WAITING_FOR_DOCUMENT)).center(Fill).into()
+        } else if state.phase == Phase::WithoutPreview {
+            container(text(form::PREVIEW_UNAVAILABLE))
+                .center(Fill)
+                .into()
+        } else {
+            form::preview(state)
+        };
 
-    let actions = widgets::action_bar(
-        messages(state),
-        CANCEL_LABEL,
-        Message::Cancel,
-        accept_label,
-        state.can_accept().then_some(Message::Accept),
-    );
+        return column![
+            container(
+                column![text(&state.dialog.title).size(PREVIEW_TITLE_SIZE), preview,]
+                    .spacing(PANE_SPACING)
+            )
+            .padding(PANE_PADDING)
+            .height(Fill),
+            rule::horizontal(1),
+            actions(state, accept_label),
+        ]
+        .into();
+    }
+
+    let settings = scrollable(
+        container(form::settings(state))
+            .padding(SETTINGS_PADDING)
+            .width(Fill),
+    )
+    .direction(scrollable::Direction::Both {
+        vertical: scrollable::Scrollbar::default(),
+        horizontal: scrollable::Scrollbar::default(),
+    })
+    .width(Fill)
+    .height(Fill);
+
+    let content: Element<'_, Message> = if state.compact() {
+        settings.into()
+    } else {
+        row![
+            container(form::preview(state)).width(FillPortion(1)),
+            container(settings).width(FillPortion(1)),
+        ]
+        .spacing(PANE_SPACING)
+        .into()
+    };
+
+    let actions = actions(state, accept_label);
 
     column![
         container(content).padding(PANE_PADDING).height(Fill),
@@ -616,6 +822,24 @@ fn view(state: &State) -> Element<'_, Message> {
         actions,
     ]
     .into()
+}
+
+fn actions<'a>(state: &'a State, accept_label: &'a str) -> Element<'a, Message> {
+    let buttons = row![
+        button(text(CANCEL_LABEL))
+            .style(button::secondary)
+            .on_press(Message::Cancel),
+        button(text(accept_label))
+            .style(button::primary)
+            .on_press_maybe(state.can_accept().then_some(Message::Accept)),
+    ]
+    .spacing(ACTION_SPACING);
+
+    row![container(messages(state)).width(Fill), buttons]
+        .spacing(PANE_SPACING)
+        .align_y(Alignment::Center)
+        .padding(PANE_PADDING)
+        .into()
 }
 
 fn messages(state: &State) -> Option<Element<'_, Message>> {
@@ -629,9 +853,10 @@ fn messages(state: &State) -> Option<Element<'_, Message>> {
     let lines: Vec<Element<'_, Message>> = error
         .chain(reasons)
         .map(|(message, is_error)| {
-            let style = match is_error {
-                true => text::danger,
-                false => text::warning,
+            let style = if is_error {
+                text::danger
+            } else {
+                text::warning
             };
 
             text(message).style(style).into()
@@ -639,4 +864,260 @@ fn messages(state: &State) -> Option<Element<'_, Message>> {
         .collect();
 
     (!lines.is_empty()).then(|| column(lines).into())
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::Path;
+
+    use crate::settings::PageSelection;
+
+    use iced::{
+        Pixels, Renderer,
+        advanced::{layout::Limits, widget::Tree},
+    };
+
+    use super::*;
+
+    #[test]
+    fn print_form_keeps_usable_bounds_when_scrolling() {
+        let renderer = Renderer::new(Font::default(), Pixels(16.0));
+        let (mut state, _) = boot(
+            Dialog {
+                title: "Print document".to_string(),
+                settings: JobSettings::default(),
+                document: None,
+                has_document: true,
+                preferred_printer: None,
+                save_as_pdf: false,
+                output: PathBuf::from("document.pdf"),
+                accept_label: None,
+                allow_pdf: true,
+                has_current_page: false,
+                has_selected_pages: false,
+            },
+            Arc::new(Mutex::new(Completion {
+                outcome: Outcome::Cancelled,
+                request: None,
+            })),
+            None,
+        );
+
+        for size in [
+            WINDOW_SIZE,
+            Size::new(640.0, 480.0),
+            Size::new(480.0, 320.0),
+        ] {
+            for expanded in [false, true] {
+                for destination in [None, Some(Destination::SavePdf)] {
+                    state.window_size = size;
+                    state.more_settings = expanded;
+                    state.selected = destination;
+
+                    let mut element = view(&state);
+                    let mut tree = Tree::new(element.as_widget());
+                    let layout = element.as_widget_mut().layout(
+                        &mut tree,
+                        &renderer,
+                        &Limits::new(Size::ZERO, size),
+                    );
+                    let content = &layout.children()[0].children()[0];
+                    let scroll = if state.compact() {
+                        content
+                    } else {
+                        &content.children()[1].children()[0]
+                    };
+                    let form = &scroll.children()[0].children()[0];
+
+                    assert!(
+                        form.size().width >= 240.0 && form.size().width.is_finite(),
+                        "form collapsed at {size:?}, expanded={expanded}, destination={:?}: {:?}",
+                        state.selected,
+                        form.size(),
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn deferred_preview_freezes_settings_and_requires_explicit_submission() {
+        let completion = Arc::new(Mutex::new(Completion {
+            outcome: Outcome::Cancelled,
+            request: None,
+        }));
+        let (mut state, _) = boot(
+            Dialog {
+                title: "Print document".to_string(),
+                settings: JobSettings {
+                    pages: PageSelection::Ranges,
+                    ranges: "2-3".to_string(),
+                    scale: 50,
+                    reverse: true,
+                    ..Default::default()
+                },
+                document: None,
+                has_document: false,
+                preferred_printer: None,
+                save_as_pdf: false,
+                output: PathBuf::from("document.pdf"),
+                accept_label: None,
+                allow_pdf: true,
+                has_current_page: false,
+                has_selected_pages: false,
+            },
+            Arc::clone(&completion),
+            Some(PrintRequest::default()),
+        );
+        state.selected = Some(Destination::Printer(Printer {
+            name: "printer".to_string(),
+            description: "Printer".to_string(),
+            is_default: true,
+        }));
+        state.capabilities = Some(Capabilities {
+            accepting_jobs: true,
+            ..Default::default()
+        });
+        assert!(state.can_preview());
+
+        let _ = update(&mut state, Message::RequestPreview);
+        assert_eq!(state.phase, Phase::Waiting);
+        assert!(!state.can_accept());
+        let _ = update(&mut state, Message::Settings(JobSettings::default()));
+        assert_eq!(state.dialog.settings.scale, 50);
+        let _ = update(&mut state, Message::Accept);
+        assert!(matches!(
+            completion.lock().unwrap().outcome,
+            Outcome::Cancelled
+        ));
+
+        let pdf = concat!(
+            "%PDF-1.4\n1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n",
+            "2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n",
+            "3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 300] >>\nendobj\n",
+            "xref\n0 4\n0000000000 65535 f \n0000000009 00000 n \n",
+            "0000000058 00000 n \n0000000115 00000 n \n",
+            "trailer\n<< /Size 4 /Root 1 0 R >>\nstartxref\n186\n%%EOF\n",
+        );
+        let _ = update(
+            &mut state,
+            Message::PreviewDocument(Ok(PreviewDocument {
+                request: PrintRequest {
+                    document: Some(PathBuf::from("rendered.pdf")),
+                    prerendered: true,
+                    ..Default::default()
+                },
+                document: Some(Arc::new(Document::open(pdf.as_bytes().to_vec()).unwrap())),
+            })),
+        );
+        assert_eq!(state.phase, Phase::Preview);
+        assert!(!state.can_preview());
+        assert!(!state.can_accept());
+        let sides = state.sides();
+        assert_eq!(sides, [vec![0]]);
+        let spec = state.sheet_spec(&sides, 0).unwrap();
+        assert_eq!(spec.scale, 1.0);
+        assert_eq!(spec.paper_mm, None);
+        let handle = state.dialog.document.as_ref().unwrap().render(&spec);
+        let _ = update(
+            &mut state,
+            Message::PreviewRendered(0, spec.clone(), Preview::Ready(handle)),
+        );
+        assert!(state.can_accept());
+
+        let renderer = Renderer::new(Font::default(), Pixels(16.0));
+        for size in [WINDOW_SIZE, Size::new(480.0, 320.0)] {
+            state.window_size = size;
+            let mut element = view(&state);
+            let mut tree = Tree::new(element.as_widget());
+            let layout = element.as_widget_mut().layout(
+                &mut tree,
+                &renderer,
+                &Limits::new(Size::ZERO, size),
+            );
+            let preview = &layout.children()[0].children()[0].children()[1];
+            assert!(
+                preview.size().height > 32.0,
+                "preview collapsed at {size:?}"
+            );
+        }
+
+        let _ = update(
+            &mut state,
+            Message::PreviewRendered(0, spec, Preview::Failed),
+        );
+        assert_eq!(state.phase, Phase::WithoutPreview);
+        assert!(state.can_accept());
+        assert!(matches!(
+            completion.lock().unwrap().outcome,
+            Outcome::Cancelled
+        ));
+
+        let _ = update(&mut state, Message::Accept);
+        let completed = completion.lock().unwrap();
+        assert!(
+            matches!(&completed.outcome, Outcome::Print { printer, settings }
+            if printer == "printer" && settings.scale == 50)
+        );
+        assert_eq!(
+            completed.request.as_ref().unwrap().document.as_deref(),
+            Some(Path::new("rendered.pdf"))
+        );
+        drop(completed);
+
+        for destination in [state.selected.clone().unwrap(), Destination::SavePdf] {
+            state.phase = Phase::Waiting;
+            state.selected = Some(destination);
+            completion.lock().unwrap().outcome = Outcome::Cancelled;
+            let _ = update(
+                &mut state,
+                Message::PreviewDocument(Ok(PreviewDocument {
+                    request: PrintRequest {
+                        document: Some(PathBuf::from("unpreviewable.pdf")),
+                        prerendered: true,
+                        ..Default::default()
+                    },
+                    document: None,
+                })),
+            );
+            assert_eq!(state.phase, Phase::WithoutPreview);
+            assert!(state.can_accept());
+            assert!(!state.page_options_apply());
+            let _ = update(&mut state, Message::Settings(JobSettings::default()));
+            assert_eq!(state.dialog.settings.scale, 50);
+            assert!(matches!(
+                completion.lock().unwrap().outcome,
+                Outcome::Cancelled
+            ));
+
+            let _ = update(&mut state, Message::Accept);
+            let completed = completion.lock().unwrap();
+            assert!(matches!(&completed.outcome,
+                Outcome::Print { settings, .. } | Outcome::SavePdf { settings, .. }
+                if settings.scale == 50));
+            assert_eq!(
+                completed.request.as_ref().unwrap().document.as_deref(),
+                Some(Path::new("unpreviewable.pdf"))
+            );
+        }
+
+        completion.lock().unwrap().outcome = Outcome::Cancelled;
+        state.phase = Phase::Waiting;
+        let _ = update(
+            &mut state,
+            Message::PreviewDocument(Err("render failed".to_string())),
+        );
+        assert_eq!(state.phase, Phase::Failed);
+        assert!(!state.can_accept());
+        let _ = update(&mut state, Message::Accept);
+        assert!(matches!(
+            completion.lock().unwrap().outcome,
+            Outcome::Cancelled
+        ));
+        let _ = update(&mut state, Message::Cancel);
+        assert!(matches!(
+            completion.lock().unwrap().outcome,
+            Outcome::Cancelled
+        ));
+    }
 }

@@ -213,9 +213,12 @@ pub fn parse_ranges(input: &str) -> Option<Vec<PageRange>> {
 fn format_ranges(ranges: impl IntoIterator<Item = PageRange>) -> String {
     ranges
         .into_iter()
-        .map(|range| match range.start == range.end {
-            true => range.start.to_string(),
-            false => format!("{}-{}", range.start, range.end),
+        .map(|range| {
+            if range.start == range.end {
+                range.start.to_string()
+            } else {
+                format!("{}-{}", range.start, range.end)
+            }
         })
         .collect::<Vec<_>>()
         .join(",")
@@ -378,7 +381,10 @@ impl JobSettings {
             .and_then(|v| v.parse::<f64>().ok())
             .filter(|scale| scale.is_finite())
         {
-            self.scale = (scale.round() as u32).clamp(MIN_SCALE, MAX_SCALE);
+            // Saturating float conversion preserves out-of-range portal input before clamping.
+            #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+            let scale = scale.round() as u32;
+            self.scale = scale.clamp(MIN_SCALE, MAX_SCALE);
         }
 
         if let Some(media_type) = get(key::MEDIA_TYPE) {
@@ -475,9 +481,10 @@ impl JobSettings {
 
     // Prerendered documents already have page selection, order and scaling applied.
     pub fn ipp_options(&self, prerendered: bool) -> Vec<(&'static str, String)> {
-        let collate = match self.collate {
-            true => ipp::COLLATED,
-            false => ipp::UNCOLLATED,
+        let collate = if self.collate {
+            ipp::COLLATED
+        } else {
+            ipp::UNCOLLATED
         };
 
         let number_up = (self.number_up > 1).then(|| self.number_up.to_string());
@@ -556,7 +563,7 @@ impl JobSettings {
     }
 
     pub fn sheet_count(&self, page_count: u32) -> u32 {
-        let sides = self.sides(page_count).len() as u32;
+        let sides = u32::try_from(self.sides(page_count).len()).unwrap_or(u32::MAX);
 
         let per_sheet = match self.duplex {
             Duplex::Off => 1,

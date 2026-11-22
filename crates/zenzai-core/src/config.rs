@@ -8,6 +8,7 @@ const CONFIG_FILE_NAME: &str = "config.toml";
 const DEFAULT_CONFIG_DIRS: &str = "/etc/xdg";
 
 // User config takes precedence over $XDG_CONFIG_DIRS.
+#[must_use]
 pub fn config_paths() -> Vec<PathBuf> {
     let config_dirs = env::var("XDG_CONFIG_DIRS")
         .ok()
@@ -36,6 +37,7 @@ fn state_file(name: &str) -> Option<PathBuf> {
 }
 
 // Unreadable state falls back to defaults.
+#[must_use]
 pub fn load_state<T: DeserializeOwned + Default>(name: &str) -> T {
     state_file(name)
         .and_then(|path| fs::read_to_string(path).ok())

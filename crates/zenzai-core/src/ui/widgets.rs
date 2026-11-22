@@ -1,5 +1,5 @@
 use iced::{
-    Alignment, Background, Border, Element, FillPortion, Length, Theme,
+    Alignment, Background, Border, Element, Fill, FillPortion, Length, Theme,
     widget::{button, container, row, text, text_input},
 };
 
@@ -11,7 +11,6 @@ const SEGMENT_SPACING: u32 = 2;
 const TRACK_PADDING: u16 = 3;
 const TRACK_RADIUS: f32 = 8.0;
 const LABEL_WIDTH: f32 = 130.0;
-const STEPPER_INPUT_WIDTH: f32 = 70.0;
 const STEPPER_SPACING: u32 = 4;
 const FORM_ROW_SPACING: u32 = 12;
 const ACTION_SPACING: u32 = 8;
@@ -29,13 +28,14 @@ where
         let is_selected = option == selected;
 
         button(text(option.to_string()))
+            .width(Fill)
             .padding(SEGMENT_PADDING)
             .style(move |theme, status| segment_style(theme, status, is_selected))
             .on_press(on_select(option.clone()))
             .into()
     });
 
-    container(row(segments).spacing(SEGMENT_SPACING))
+    container(row(segments).spacing(SEGMENT_SPACING).width(Fill))
         .padding(TRACK_PADDING)
         .style(|theme: &Theme| container::Style {
             background: Some(Background::Color(
@@ -124,7 +124,7 @@ pub fn stepper<'a, Message: Clone + 'a>(
     row![
         text_input("", &value.to_string())
             .on_input(move |input| on_change(input.parse().unwrap_or(0).min(max)))
-            .width(Length::Fixed(STEPPER_INPUT_WIDTH)),
+            .width(Fill),
         button(text("−"))
             .style(button::secondary)
             .on_press_maybe(decrement),
@@ -132,6 +132,7 @@ pub fn stepper<'a, Message: Clone + 'a>(
             .style(button::secondary)
             .on_press_maybe(increment),
     ]
+    .width(Fill)
     .spacing(STEPPER_SPACING)
     .align_y(Alignment::Center)
     .into()

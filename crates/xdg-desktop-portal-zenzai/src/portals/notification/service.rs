@@ -5,7 +5,8 @@ use futures_util::StreamExt;
 use tempfile::NamedTempFile;
 use tokio::sync::{Mutex, OnceCell};
 use zbus::{
-    Connection, Message, OwnedVariant, Proxy, Str, fdo, interface, object_server::SignalEmitter,
+    Connection, Message, OwnedVariant, Proxy, Str, fdo, interface, names::MemberName,
+    object_server::SignalEmitter,
 };
 
 use crate::constants::DBUS_PATH;
@@ -88,7 +89,9 @@ impl NotificationService {
                 let daemon = DaemonProxy::new(connection).await?;
                 let mut signals = daemon.inner().receive_all_signals().await?;
                 let bus = fdo::DBusProxy::new(connection).await?;
-                let mut owners = bus.receive_name_owner_changed_with_args(&[(0, NAME)]).await?;
+                let mut owners = bus
+                    .receive_name_owner_changed_with_args(&[(0, NAME)])
+                    .await?;
                 let state = Arc::clone(&self.state);
                 let connection = connection.clone();
 
@@ -128,11 +131,18 @@ impl NotificationService {
 
 #[interface(name = "org.freedesktop.impl.portal.Notification")]
 impl NotificationService {
+    // D-Bus properties require an instance receiver even for constant values.
+    #[allow(clippy::unused_self)]
     #[zbus(property, name = "version")]
     fn version(&self) -> u32 {
         1
     }
 
+    #[tracing::instrument(
+        level = "debug",
+        skip_all,
+        fields(method = "AddNotification", %app_id, %id)
+    )]
     async fn add_notification(
         &self,
         app_id: &str,
@@ -140,6 +150,10 @@ impl NotificationService {
         notification: Dict,
         #[zbus(connection)] connection: &Connection,
     ) -> fdo::Result<()> {
+        tracing::debug!(
+            entry_keys = ?notification.keys().collect::<Vec<_>>(),
+            "received notification add request"
+        );
         let result: Result<()> = async {
             self.listen(connection).await?;
 
@@ -175,36 +189,53 @@ impl NotificationService {
                 },
             );
 
+            tracing::debug!(daemon_id, replaces, "notification added");
             Ok(())
         }
         .await;
 
-        result.map_err(|err| fdo::Error::Failed(format!("notification: {err:#}")))
+        result.map_err(|err| {
+            tracing::warn!("notification add failed");
+            fdo::Error::Failed(format!("notification: {err:#}"))
+        })
     }
 
+    #[tracing::instrument(
+        level = "debug",
+        skip_all,
+        fields(method = "RemoveNotification", %app_id, %id)
+    )]
     async fn remove_notification(
         &self,
         app_id: &str,
         id: &str,
         #[zbus(connection)] connection: &Connection,
     ) -> fdo::Result<()> {
+        tracing::debug!("received notification remove request");
         let mut state = self.state.lock().await;
         let key = (app_id.to_owned(), id.to_owned());
 
         if !state.ids.contains_key(&key) {
+            tracing::debug!("notification withdrawal ignored: unknown id");
             return Ok(());
         }
 
-        let daemon = state
-            .daemon(connection)
-            .await
-            .map_err(|err| fdo::Error::Failed(err.to_string()))?;
+        let daemon = state.daemon(connection).await.map_err(|err| {
+            tracing::warn!("notification withdrawal failed: daemon unavailable");
+            fdo::Error::Failed(err.to_string())
+        })?;
 
-        if let Some(id) = state.ids.get(&key).copied() {
-            match daemon.close_notification(id).await {
+        if let Some(daemon_id) = state.ids.get(&key).copied() {
+            match daemon.close_notification(daemon_id).await {
                 // The notification may have expired before withdrawal arrived.
-                Ok(()) | Err(fdo::Error::InvalidArgs(_)) => state.remove(id),
-                Err(err) => return Err(err),
+                Ok(()) | Err(fdo::Error::InvalidArgs(_)) => {
+                    state.remove(daemon_id);
+                    tracing::debug!(daemon_id, "notification withdrawn");
+                }
+                Err(err) => {
+                    tracing::warn!(daemon_id, "notification withdrawal failed");
+                    return Err(err);
+                }
             }
         }
 
@@ -236,7 +267,7 @@ async fn handle_signal(
         return Ok(());
     }
 
-    match header.member().map(|member| member.as_str()) {
+    match header.member().map(MemberName::as_str) {
         Some("NotificationClosed") => {
             let (id, _reason): (u32, u32) = message.body().deserialize()?;
             state.remove(id);

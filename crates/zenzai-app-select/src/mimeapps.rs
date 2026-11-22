@@ -104,7 +104,7 @@ fn update_file(path: &Path, content_type: &str, id: &str) -> Result<bool> {
     let mut file = OpenOptions::new()
         .read(true)
         .write(true)
-        .custom_flags(OFlags::NOFOLLOW.bits() as i32)
+        .custom_flags(i32::from_ne_bytes(OFlags::NOFOLLOW.bits().to_ne_bytes()))
         .open(path)?;
     file.lock()?;
     let metadata = file.metadata()?;

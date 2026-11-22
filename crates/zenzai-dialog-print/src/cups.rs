@@ -4,13 +4,13 @@ use std::{
     io::Read,
     path::Path,
     ptr,
-    sync::{Mutex, MutexGuard},
+    sync::{Mutex, MutexGuard, PoisonError},
 };
 
 use anyhow::{Context, Result, anyhow};
 use cups_rs::{
-    ConnectionFlags, Destination, PrintOptions, create_job_with_options, get_all_destinations,
-    get_destination,
+    ConnectionFlags, Destination, HttpConnection, PrintOptions, create_job_with_options,
+    get_all_destinations, get_destination,
     job::{FORMAT_PDF, FORMAT_POSTSCRIPT},
 };
 
@@ -82,6 +82,8 @@ pub struct Printer {
     pub is_default: bool,
 }
 
+// These are independent printer capabilities, not mutually exclusive states.
+#[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Clone, Default)]
 pub struct Capabilities {
     pub papers: Vec<Paper>,
@@ -95,7 +97,7 @@ pub struct Capabilities {
 }
 
 fn lock() -> MutexGuard<'static, ()> {
-    CUPS.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
+    CUPS.lock().unwrap_or_else(PoisonError::into_inner)
 }
 
 pub fn printers() -> Result<Vec<Printer>> {
@@ -133,7 +135,7 @@ pub fn capabilities(name: &str) -> Result<Capabilities> {
         .inspect_err(|err| tracing::debug!("labels fall back to IPP keywords: {err}"));
     let http = connection
         .as_ref()
-        .map_or(ptr::null_mut(), |connection| connection.as_ptr());
+        .map_or(ptr::null_mut(), HttpConnection::as_ptr);
 
     let supported = |option: &str| {
         info.get_supported_values(http, raw, option)

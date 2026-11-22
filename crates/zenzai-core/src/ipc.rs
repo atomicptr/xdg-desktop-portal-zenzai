@@ -17,6 +17,8 @@ pub enum SetupValue {
     Text(String),
 }
 
+// Independent protocol flags must retain their serialized boolean representation.
+#[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct PrintRequest {
     pub title: String,
@@ -32,10 +34,19 @@ pub struct PrintRequest {
     pub supported_output_formats: Option<Vec<String>>,
 }
 
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum PrintAction {
+    #[default]
+    Submit,
+    Preview,
+}
+
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct PrintResponse {
     pub settings: PrintSettings,
     pub page_setup: PageSetup,
+    #[serde(default)]
+    pub action: PrintAction,
 }
 
 #[derive(Debug, Default, Serialize, Deserialize)]

@@ -29,6 +29,7 @@ pub enum AccentColor {
 }
 
 impl AccentColor {
+    #[must_use]
     pub fn color(&self) -> Color {
         match self {
             Self::Css(color) => *color,

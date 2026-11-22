@@ -50,6 +50,8 @@ struct Config {
     appchooser: AppChooserConfig,
 }
 
+// IPC exit codes are fixed constants in the u8 range.
+#[allow(clippy::cast_possible_truncation)]
 fn main() -> ExitCode {
     tracing_subscriber::fmt()
         .with_writer(io::stderr)
@@ -61,11 +63,13 @@ fn main() -> ExitCode {
         Ok(false) => ExitCode::from(EXIT_CANCELLED as u8),
         Err(err) => {
             eprintln!("zenzai-app-select: {err:#}");
+            zenzai_core::show_error("Could not open application", &err);
             ExitCode::from(EXIT_ERROR as u8)
         }
     }
 }
 
+#[tracing::instrument(level = "debug", skip_all, fields(portal = cli.portal, force = cli.force))]
 fn run(cli: Cli) -> Result<bool> {
     let request = if cli.portal {
         serde_json::from_reader(io::stdin().lock())
@@ -85,11 +89,22 @@ fn run(cli: Cli) -> Result<bool> {
         }
     };
 
+    let uri = Url::parse(&request.uri).ok();
+    let local = uri.as_ref().and_then(|uri| uri.to_file_path().ok());
+
+    tracing::debug!(
+        content_type = %request.content_type,
+        uri_scheme = uri.as_ref().map(Url::scheme),
+        local_path = ?local,
+        choices = request.choices.len(),
+        email = request.email.is_some(),
+        has_activation_token = request.activation_token.is_some(),
+        "received application selector request"
+    );
+
     let config: Config = load_or_default()?;
     let terminal = apps::terminal(config.terminal.as_ref().map(TerminalName::as_str));
-    let local = Url::parse(&request.uri)
-        .ok()
-        .and_then(|uri| uri.to_file_path().ok());
+
     let file = local.as_ref().map_or_else(
         || request.uri.clone(),
         |path| path.to_string_lossy().into_owned(),
@@ -98,6 +113,8 @@ fn run(cli: Cli) -> Result<bool> {
     if !cli.force
         && let Some(DefaultMapping::One(target @ Target::Command(_))) = mapping
     {
+        tracing::debug!("using configured command mapping");
+
         let mut apps = Vec::new();
         let index = apps::resolve(target, &mut apps, &file)?;
         apps[index].launch(&terminal, &request)?;
@@ -110,6 +127,7 @@ fn run(cli: Cli) -> Result<bool> {
         if let Some(DefaultMapping::One(target)) = mapping {
             match apps::resolve(target, &mut apps, &file) {
                 Ok(index) => {
+                    tracing::debug!("using configured desktop mapping");
                     apps[index].launch(&terminal, &request)?;
                     return Ok(true);
                 }
@@ -135,6 +153,7 @@ fn run(cli: Cli) -> Result<bool> {
                     }
                 });
             if let Some(index) = index {
+                tracing::debug!("using remembered or MIME default");
                 apps[index].launch(&terminal, &request)?;
                 return Ok(true);
             }
@@ -183,9 +202,15 @@ fn run(cli: Cli) -> Result<bool> {
                 |name| name.to_string_lossy().into_owned(),
             )
     };
+    tracing::debug!(
+        available = apps.len(),
+        suggested = suggested.len(),
+        "opening application chooser"
+    );
     let apps: Arc<[App]> = apps.into();
     let Some((index, remember)) = ui::run(apps.clone(), suggested, title, mapping.is_some())?
     else {
+        tracing::debug!("application chooser cancelled");
         return Ok(false);
     };
 

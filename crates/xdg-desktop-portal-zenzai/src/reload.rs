@@ -13,7 +13,6 @@ use tokio::{
     sync::{mpsc, watch},
     time,
 };
-use which::which;
 use zbus::Connection;
 use zenzai_core::config::{config_paths, load_or_default};
 
@@ -24,6 +23,7 @@ use crate::{
         appchooser::service::SELECT_COMMAND, print::dialog::DIALOG_COMMAND,
         settings::service::SettingsService,
     },
+    utils::command::resolve_command,
 };
 
 const SAVE_DEBOUNCE: Duration = Duration::from_millis(200);
@@ -53,6 +53,8 @@ fn watch_directories(targets: &HashSet<PathBuf>) -> HashMap<PathBuf, DirectoryId
         .collect()
 }
 
+// Portal enablement flags are independent, not mutually exclusive states.
+#[allow(clippy::struct_excessive_bools)]
 #[derive(PartialEq, Eq)]
 pub struct EnabledPortals {
     settings: bool,
@@ -281,12 +283,12 @@ impl Reload {
 }
 
 fn update_command(sender: &watch::Sender<PathBuf>, command: &str) {
-    match which(command) {
+    match resolve_command(command) {
         Ok(command) => {
             sender.send_replace(command);
         }
         Err(err) => {
-            tracing::warn!("keeping previous portal command, could not find {command:?}: {err}")
+            tracing::warn!("keeping previous portal command, could not find {command:?}: {err}");
         }
     }
 }

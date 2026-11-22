@@ -4,7 +4,7 @@ use anyhow::{Result, anyhow};
 use hayro::{
     RenderCache, RenderSettings,
     hayro_interpret::{InterpreterSettings, util::TransformExt},
-    hayro_syntax::Pdf,
+    hayro_syntax::{Pdf, page::Page},
     kurbo::{Affine, Rect},
     render_into,
     vello_cpu::{
@@ -48,7 +48,7 @@ impl Document {
     }
 
     pub fn page_count(&self) -> u32 {
-        self.pdf.pages().len() as u32
+        u32::try_from(self.pdf.pages().len()).unwrap_or(u32::MAX)
     }
 
     pub fn render(&self, spec: &SheetSpec) -> Handle {
@@ -59,21 +59,27 @@ impl Document {
         // like CUPS, some n-up counts are laid out on a sideways sheet, landscape turns it again
         let (columns, rows, sideways) = nup_grid(spec.number_up);
 
-        let (width_mm, height_mm) = match spec.landscape != sideways {
-            true => (paper_mm.1, paper_mm.0),
-            false => paper_mm,
+        let (width_mm, height_mm) = if spec.landscape == sideways {
+            paper_mm
+        } else {
+            (paper_mm.1, paper_mm.0)
         };
 
         let pixels_per_mm = SHEET_PIXELS / width_mm.max(height_mm);
+
+        // Pixel dimensions intentionally truncate; the longest edge is SHEET_PIXELS.
+        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
         let width = (width_mm * pixels_per_mm) as u16;
+        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
         let height = (height_mm * pixels_per_mm) as u16;
 
         let mut ctx = RenderContext::new(width, height);
         let cache = RenderCache::new();
         let settings = InterpreterSettings::default();
-        let (columns, rows) = match spec.landscape {
-            true => (rows, columns),
-            false => (columns, rows),
+        let (columns, rows) = if spec.landscape {
+            (rows, columns)
+        } else {
+            (columns, rows)
         };
 
         let cells = grid(
@@ -93,9 +99,10 @@ impl Document {
 
             // like CUPS, pages whose shape does not match the cell are turned by 90 degrees
             let rotate = (page_width > page_height) != (cell.width() > cell.height());
-            let (fit_width, fit_height) = match rotate {
-                true => (page_height, page_width),
-                false => (page_width, page_height),
+            let (fit_width, fit_height) = if rotate {
+                (page_height, page_width)
+            } else {
+                (page_width, page_height)
             };
 
             let fit = (cell.width() / fit_width).min(cell.height() / fit_height) * spec.scale;
@@ -103,9 +110,10 @@ impl Document {
             let offset_y = cell.y0 + (cell.height() - fit_height * fit) / 2.0;
 
             // rotating counter-clockwise around the origin moves the page above it, shift it back down
-            let rotation = match rotate {
-                true => Affine::translate((0.0, page_width)) * Affine::rotate(-FRAC_PI_2),
-                false => Affine::IDENTITY,
+            let rotation = if rotate {
+                Affine::translate((0.0, page_width)) * Affine::rotate(-FRAC_PI_2)
+            } else {
+                Affine::IDENTITY
             };
 
             let transform = Affine::translate((offset_x, offset_y))
@@ -148,7 +156,7 @@ impl Document {
     fn page_size_mm(&self, index: Option<&u32>) -> (f64, f64) {
         let (width, height) = index
             .and_then(|index| self.pdf.pages().get(*index as usize))
-            .map_or((1.0, 1.0), |page| page.render_dimensions());
+            .map_or((1.0, 1.0), Page::render_dimensions);
 
         (
             f64::from(width) / POINTS_PER_MM,
@@ -171,12 +179,16 @@ fn nup_grid(number_up: usize) -> (usize, usize, bool) {
 
 // ITU-R BT.601 luma, what "grayscale" commonly means for print previews
 fn grayscale([r, g, b, _]: &mut [u8; 4]) {
+    // Rounded luma is a weighted average of u8 channels and remains in 0..=255.
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
     let luma =
         (0.299 * f32::from(*r) + 0.587 * f32::from(*g) + 0.114 * f32::from(*b)).round() as u8;
 
     [*r, *g, *b] = [luma; 3];
 }
 
+// N-up grids have at most four rows and columns; their coordinates are exact in f64.
+#[allow(clippy::cast_precision_loss)]
 fn grid(
     count: usize,
     (columns, rows): (usize, usize),
@@ -187,9 +199,10 @@ fn grid(
     let (left_to_right, top_to_bottom, rows_first) = layout.directions();
 
     (0..count.max(1)).map(move |index| {
-        let (column, row) = match rows_first {
-            true => (index % columns, index / columns),
-            false => (index / rows, index % rows),
+        let (column, row) = if rows_first {
+            (index % columns, index / columns)
+        } else {
+            (index / rows, index % rows)
         };
 
         let column = if left_to_right {

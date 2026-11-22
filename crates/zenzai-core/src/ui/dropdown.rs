@@ -91,6 +91,8 @@ fn scroll_to<Message: Send + 'static>(offset: f32) -> Task<Message> {
     operation::snap_to(LIST_ID, RelativeOffset { x: 0.0, y: offset })
 }
 
+// Scroll offsets are approximate UI coordinates, so f32 precision is sufficient.
+#[allow(clippy::cast_precision_loss)]
 fn offset(index: usize, count: usize) -> f32 {
     match count {
         0 | 1 => 0.0,
@@ -114,15 +116,14 @@ where
     let menu = menu.filter(|menu| menu.id == id);
     let is_open = menu.is_some();
 
-    let toggle = match menu {
-        Some(_) => Action::Close,
-        None => {
-            let index = selected
-                .and_then(|selected| options.iter().position(|option| option == selected))
-                .unwrap_or_default();
+    let toggle = if is_open {
+        Action::Close
+    } else {
+        let index = selected
+            .and_then(|selected| options.iter().position(|option| option == selected))
+            .unwrap_or_default();
 
-            Action::Open(id, index, offset(index, options.len()))
-        }
+        Action::Open(id, index, offset(index, options.len()))
     };
 
     let label = selected.map(T::to_string).unwrap_or_default();
@@ -179,7 +180,7 @@ where
     let items = matches.iter().enumerate().map(|(index, (option, label))| {
         let is_highlighted = index == highlighted;
 
-        button(text(label.to_string()))
+        button(text((*label).clone()))
             .width(Fill)
             .padding(ITEM_PADDING)
             .style(move |theme, status| item_style(theme, status, is_highlighted))

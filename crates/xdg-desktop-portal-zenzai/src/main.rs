@@ -11,7 +11,7 @@ use portals::{
 use reload::{ConfigWatcher, EnabledPortals, Reload};
 use tokio::sync::watch;
 use tracing_subscriber::EnvFilter;
-use which::which;
+use utils::command::resolve_command;
 use zbus::conn::Builder;
 use zenzai_core::config::load_or_default;
 
@@ -29,12 +29,10 @@ async fn main() -> Result<()> {
     } else {
         "info"
     };
-    tracing_subscriber::fmt()
-        .with_env_filter(EnvFilter::new(format!(
-            "{}={level}",
-            env!("CARGO_CRATE_NAME")
-        )))
-        .init();
+    let filter = EnvFilter::try_from_default_env()
+        .unwrap_or_else(|_| EnvFilter::new(format!("{}={level}", env!("CARGO_CRATE_NAME"))));
+
+    tracing_subscriber::fmt().with_env_filter(filter).init();
 
     tracing::info!("xdg-desktop-portal-zenzai v{} started!", APP_VERSION);
 
@@ -49,7 +47,7 @@ async fn main() -> Result<()> {
 
     tracing::debug!("Config: {:?}", config);
 
-    let _terminal = config.terminal;
+    drop(config.terminal);
     let mut any_enabled = false;
 
     let mut conn = Builder::session().name(DBUS_NAME);
@@ -67,7 +65,7 @@ async fn main() -> Result<()> {
         && config.enabled
     {
         let command = config.command.as_deref().unwrap_or(SELECT_COMMAND);
-        match which(command) {
+        match resolve_command(command) {
             Ok(command) => {
                 any_enabled = true;
                 tracing::info!("portal: org.freedesktop.portal.AppChooser enabled!");
@@ -84,7 +82,7 @@ async fn main() -> Result<()> {
     {
         let command = config.command.as_deref().unwrap_or(SELECT_COMMAND);
 
-        match which(command) {
+        match resolve_command(command) {
             Ok(command) => {
                 any_enabled = true;
 
@@ -107,18 +105,17 @@ async fn main() -> Result<()> {
     {
         let command = config.command.as_deref().unwrap_or(DIALOG_COMMAND);
 
-        match which(command) {
-            Ok(command) => {
-                any_enabled = true;
+        if let Ok(command) = resolve_command(command) {
+            any_enabled = true;
 
-                tracing::info!("portal: org.freedesktop.portal.Print enabled!");
-                let (sender, command) = watch::channel(command);
-                reload.print = Some(sender);
-                conn = conn.serve_at(DBUS_PATH, PrintService::new(command));
-            }
-            Err(_) => tracing::error!(
+            tracing::info!("portal: org.freedesktop.portal.Print enabled!");
+            let (sender, command) = watch::channel(command);
+            reload.print = Some(sender);
+            conn = conn.serve_at(DBUS_PATH, PrintService::new(command));
+        } else {
+            tracing::error!(
                 "portal: org.freedesktop.portal.Print disabled, could not find print dialog {command:?}"
-            ),
+            );
         }
     }
 

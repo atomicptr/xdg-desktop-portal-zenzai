@@ -18,3 +18,6 @@ dirs.workspace = true
 iced = { workspace = true, optional = true }
 serde.workspace = true
 toml.workspace = true
+
+[lints]
+workspace = true

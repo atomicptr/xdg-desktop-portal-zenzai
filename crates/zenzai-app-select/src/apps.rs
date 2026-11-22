@@ -71,11 +71,17 @@ impl App {
         }
 
         // Keep application output out of callers' captured chooser output.
-        command
+        let child = command
             .stdin(Stdio::null())
             .stdout(Stdio::null())
             .spawn()
             .with_context(|| format!("could not launch {}", self.label))?;
+        tracing::debug!(
+            app_id = ?self.id,
+            program,
+            pid = child.id(),
+            "application process started"
+        );
         Ok(())
     }
 }
@@ -163,7 +169,7 @@ pub fn discover(file: &str) -> Vec<App> {
                 continue;
             };
 
-            if let Ok(app) = from_entry(entry, id, file, &locales, &desktops) {
+            if let Ok(app) = from_entry(&entry, id, file, &locales, &desktops) {
                 apps.push(app);
             }
         }
@@ -174,7 +180,7 @@ pub fn discover(file: &str) -> Vec<App> {
 }
 
 fn from_entry(
-    entry: DesktopEntry,
+    entry: &DesktopEntry,
     id: String,
     file: &str,
     locales: &[String],
@@ -228,7 +234,7 @@ fn from_entry(
         id: Some(id),
         label: entry
             .name(locales)
-            .map_or_else(|| entry.appid.clone(), |name| name.into_owned()),
+            .map_or_else(|| entry.appid.clone(), Cow::into_owned),
         icon,
         menu_visible,
         content_types: entry
