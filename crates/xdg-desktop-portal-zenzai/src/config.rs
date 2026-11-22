@@ -44,6 +44,7 @@ mod tests {
         let appchooser = config.appchooser.unwrap();
         assert!(appchooser.enabled);
         assert!(appchooser.command.is_some());
+        assert!(!appchooser.write_mimeapps);
         assert_eq!(appchooser.defaults.len(), 3);
 
         let print = config.print.unwrap();

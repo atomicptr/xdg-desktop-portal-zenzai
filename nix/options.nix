@@ -87,6 +87,16 @@ in
 
       command = nullOr types.str "Application selector executable, defaults to the packaged zenzai-app-select.";
 
+      writeMimeapps = mkOption {
+        type = types.bool;
+        default = true;
+        description = ''
+          Whether setting a default application also updates an existing writable user
+          mimeapps.list. Disabling this leaves MIME default lookup and local remembering enabled.
+          Missing files are never created and managed symlinks are never modified.
+        '';
+      };
+
       defaults = mkOption {
         type = types.attrsOf (types.either target (types.listOf target));
         default = { };

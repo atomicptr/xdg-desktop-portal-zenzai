@@ -16,6 +16,7 @@ lib.filterAttrsRecursive (_: value: value != null) {
 
   appchooser = {
     enabled = appchooser.enable;
+    write-mimeapps = appchooser.writeMimeapps;
     command =
       if appchooser.command != null then
         appchooser.command

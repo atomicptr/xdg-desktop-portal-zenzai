@@ -2,14 +2,24 @@ use std::collections::BTreeMap;
 
 use serde::Deserialize;
 
-#[derive(Debug, Default, Deserialize)]
-#[serde(rename_all = "kebab-case")]
+#[derive(Debug, Deserialize)]
+#[serde(default, rename_all = "kebab-case")]
 pub struct AppChooserConfig {
-    #[serde(default)]
     pub enabled: bool,
     pub command: Option<String>,
-    #[serde(default)]
     pub defaults: BTreeMap<String, DefaultMapping>,
+    pub write_mimeapps: bool,
+}
+
+impl Default for AppChooserConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            command: None,
+            defaults: BTreeMap::new(),
+            write_mimeapps: true,
+        }
+    }
 }
 
 impl AppChooserConfig {
@@ -38,8 +48,8 @@ pub enum Target {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(untagged)]
 pub enum DefaultMapping {
-    One(Target),
     Choice(Vec<Target>),
+    One(Target),
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -77,15 +87,20 @@ mod tests {
             "*" = "fallback"
             "image/*" = ["viewer", { command = "imv" }]
             "image/png" = "png-viewer"
+            "application/pdf" = ["pdf-viewer"]
         "#,
         )
         .unwrap();
+        assert!(config.write_mimeapps);
 
         assert!(
             matches!(config.mapping("image/png"), Some(DefaultMapping::One(Target::DesktopFile(id))) if id == "png-viewer")
         );
         assert!(
             matches!(config.mapping("image/jpeg"), Some(DefaultMapping::Choice(targets)) if targets.len() == 2)
+        );
+        assert!(
+            matches!(config.mapping("application/pdf"), Some(DefaultMapping::Choice(targets)) if matches!(targets.as_slice(), [Target::DesktopFile(id)] if id == "pdf-viewer"))
         );
         assert!(
             matches!(config.mapping("text/plain"), Some(DefaultMapping::One(Target::DesktopFile(id))) if id == "fallback")

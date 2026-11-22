@@ -20,6 +20,7 @@ use zenzai_core::{
 use apps::App;
 
 mod apps;
+mod mimeapps;
 mod ui;
 
 const STATE_FILE: &str = "app-select.toml";
@@ -33,6 +34,9 @@ const APP_DIRECTORY: &str = "xdg-desktop-portal-zenzai";
 struct Cli {
     /// File to open
     file: Option<PathBuf>,
+    /// Always show the chooser, even when a default application is available
+    #[arg(long)]
+    force: bool,
     /// Read a portal request from stdin
     #[arg(long, hide = true, conflicts_with = "file")]
     portal: bool,
@@ -91,7 +95,9 @@ fn run(cli: Cli) -> Result<bool> {
     );
     let mapping = config.appchooser.mapping(&request.content_type);
     let mut apps = Vec::new();
-    if let Some(DefaultMapping::One(target @ Target::Command(_))) = mapping {
+    if !cli.force
+        && let Some(DefaultMapping::One(target @ Target::Command(_))) = mapping
+    {
         let index = apps::resolve(target, &mut apps, &file)?;
         apps[index].launch(&terminal)?;
         return Ok(true);
@@ -99,21 +105,38 @@ fn run(cli: Cli) -> Result<bool> {
 
     apps = apps::discover(&request.uri);
 
-    if let Some(DefaultMapping::One(target)) = mapping {
-        match apps::resolve(target, &mut apps, &file) {
-            Ok(index) => {
+    if !cli.force {
+        if let Some(DefaultMapping::One(target)) = mapping {
+            match apps::resolve(target, &mut apps, &file) {
+                Ok(index) => {
+                    apps[index].launch(&terminal)?;
+                    return Ok(true);
+                }
+                Err(err) => tracing::warn!("configured default is unavailable: {err:#}"),
+            }
+        } else if mapping.is_none() {
+            let remembered: BTreeMap<String, String> = load_state(STATE_FILE);
+            let index = remembered
+                .get(&request.content_type)
+                .and_then(|id| apps.iter().position(|app| app.matches_id(id)))
+                .or_else(|| match mimeapps::default_app(&request.content_type) {
+                    Ok(Some(id)) => {
+                        let index = apps.iter().position(|app| app.matches_id(&id));
+                        if index.is_none() {
+                            tracing::warn!("MIME default is unavailable: {id}");
+                        }
+                        index
+                    }
+                    Ok(None) => None,
+                    Err(err) => {
+                        tracing::warn!("could not look up MIME default: {err:#}");
+                        None
+                    }
+                });
+            if let Some(index) = index {
                 apps[index].launch(&terminal)?;
                 return Ok(true);
             }
-            Err(err) => tracing::warn!("configured default is unavailable: {err:#}"),
-        }
-    } else if mapping.is_none() {
-        let remembered: BTreeMap<String, String> = load_state(STATE_FILE);
-        if let Some(id) = remembered.get(&request.content_type)
-            && let Some(index) = apps.iter().position(|app| app.matches_id(id))
-        {
-            apps[index].launch(&terminal)?;
-            return Ok(true);
         }
     }
 
@@ -164,11 +187,16 @@ fn run(cli: Cli) -> Result<bool> {
     let app = &apps[index];
     app.launch(&terminal)?;
 
-    if remember
-        && let Some(id) = &app.id
-        && let Err(err) = remember_app(&request.content_type, id)
-    {
-        tracing::warn!("application opened, but could not save its association: {err:#}");
+    if remember && let Some(id) = &app.id {
+        if let Err(err) = remember_app(&request.content_type, id) {
+            tracing::warn!("application opened, but could not save its local association: {err:#}");
+        }
+
+        if config.appchooser.write_mimeapps
+            && let Err(err) = mimeapps::remember(&request.content_type, id)
+        {
+            tracing::warn!("application opened, but could not update MIME associations: {err:#}");
+        }
     }
 
     Ok(true)

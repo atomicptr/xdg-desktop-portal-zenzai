@@ -3,6 +3,7 @@ terminal = "wezterm"
 [appchooser]
 command = "zenzai-app-select"
 enabled = true
+write-mimeapps = false
 
 [appchooser.defaults]
 "image/jpeg" = "io.github.woelper.Oculante"

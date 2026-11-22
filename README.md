@@ -65,6 +65,7 @@ terminal = "ghostty"
 [appchooser]
 enabled = true
 command = "zenzai-app-select" # path to the `zenzai-app-select` cli, looked up on PATH by default
+write-mimeapps = true # set false to keep remembered defaults local without updating mimeapps.list
 
 # list of content types -> app associations
 [appchooser.defaults]

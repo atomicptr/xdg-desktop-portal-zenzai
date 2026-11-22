@@ -16,6 +16,7 @@
   portals.appchooser = {
     enable = true;
     command = "zenzai-app-select";
+    writeMimeapps = false;
     defaults = {
       "text/plain" = {
         command = "ghostty";
