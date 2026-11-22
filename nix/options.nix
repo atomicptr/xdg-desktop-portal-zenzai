@@ -19,7 +19,13 @@ let
     arguments = mkOption {
       type = types.listOf types.str;
       default = [ ];
-      description = "Arguments passed to the executable.";
+      description = ''
+        Arguments passed to the executable. Each occurrence of `%file%` is replaced with the
+        local file path, or the original URI for non-local resources, including within an
+        argument such as `--input=%file%`. Without this placeholder, the file is appended
+        as the last argument. Each list element remains one argument, with no shell expansion
+        or word splitting, placeholder-like text in the file path is not expanded again.
+      '';
     };
   };
 
@@ -79,21 +85,7 @@ in
     appchooser = {
       enable = mkEnableOption "the App Chooser portal";
 
-      runner = mkOption {
-        type = types.nullOr (
-          types.submodule {
-            options = commandOptions // {
-              type = mkOption {
-                type = types.enum [ "dmenu" ];
-                default = "dmenu";
-                description = "Runner API, dmenu reads choices from stdin.";
-              };
-            };
-          }
-        );
-        default = null;
-        description = "Picker used when several applications are available.";
-      };
+      command = nullOr types.str "Application selector executable, defaults to the packaged zenzai-app-select.";
 
       defaults = mkOption {
         type = types.attrsOf (types.either target (types.listOf target));
@@ -104,13 +96,16 @@ in
             arguments = [
               "-e"
               "nvim"
+              "--"
+              "%file%"
             ];
           };
           "image/jpeg" = "io.github.woelper.Oculante";
         };
         description = ''
           Content type to application mapping: a desktop file, a command, or a list of both to
-          pick from. Patterns ending in `*` match any suffix, the most specific one wins.
+          pick from. A single target launches immediately. Exact matches take priority over patterns
+          ending in `*`, where the most specific pattern wins, then remembered exact matches.
         '';
       };
     };

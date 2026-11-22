@@ -16,7 +16,12 @@ lib.filterAttrsRecursive (_: value: value != null) {
 
   appchooser = {
     enabled = appchooser.enable;
-    inherit (appchooser) runner defaults;
+    command =
+      if appchooser.command != null then
+        appchooser.command
+      else
+        lib.getExe' cfg.package "zenzai-app-select";
+    inherit (appchooser) defaults;
   };
 
   print = {

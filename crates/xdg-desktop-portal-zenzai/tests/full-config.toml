@@ -1,17 +1,13 @@
 terminal = "wezterm"
 
 [appchooser]
+command = "zenzai-app-select"
 enabled = true
 
 [appchooser.defaults]
 "image/jpeg" = "io.github.woelper.Oculante"
 "image/*" = ["io.github.woelper.Oculante.desktop", { arguments = [], command = "imv" }]
 "text/plain" = { arguments = ["-e", "nvim"], command = "ghostty" }
-
-[appchooser.runner]
-arguments = ["--dmenu"]
-command = "wofi"
-type = "dmenu"
 
 [print]
 command = "zenzai-dialog-print"

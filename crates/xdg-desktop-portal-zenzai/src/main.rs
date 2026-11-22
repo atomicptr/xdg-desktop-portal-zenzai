@@ -1,10 +1,10 @@
 use std::future::pending;
 
 use anyhow::Result;
-use config::{Config, TerminalName};
+use config::Config;
 use constants::{APP_VERSION, DBUS_NAME, DBUS_PATH};
 use portals::{
-    appchooser::{config::terminal, service::AppChooserService},
+    appchooser::service::{AppChooserService, SELECT_COMMAND},
     print::{dialog::DIALOG_COMMAND, service::PrintService},
     settings::service::SettingsService,
 };
@@ -39,7 +39,7 @@ async fn main() -> Result<()> {
 
     tracing::debug!("Config: {:?}", config);
 
-    let config_terminal = config.terminal;
+    let _terminal = config.terminal;
     let mut any_enabled = false;
 
     let mut conn = Builder::session().name(DBUS_NAME);
@@ -56,12 +56,15 @@ async fn main() -> Result<()> {
     if let Some(config) = config.appchooser
         && config.enabled
     {
-        any_enabled = true;
-
-        let terminal = terminal(config_terminal.as_ref().map(TerminalName::as_str));
-
-        tracing::info!("portal: org.freedesktop.portal.AppChooser enabled!");
-        conn = conn.serve_at(DBUS_PATH, AppChooserService { terminal, config });
+        let command = config.command.as_deref().unwrap_or(SELECT_COMMAND);
+        match which(command) {
+            Ok(command) => {
+                any_enabled = true;
+                tracing::info!("portal: org.freedesktop.portal.AppChooser enabled!");
+                conn = conn.serve_at(DBUS_PATH, AppChooserService { command });
+            }
+            Err(err) => tracing::error!("AppChooser disabled, could not find {command:?}: {err}"),
+        }
     }
 
     if let Some(config) = config.print

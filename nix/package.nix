@@ -2,9 +2,11 @@
   lib,
   cups,
   libxkbcommon,
+  makeWrapper,
   pkg-config,
   rustPlatform,
   wayland,
+  xdg-utils,
 }:
 let
   cargoToml = lib.importTOML ../Cargo.toml;
@@ -26,6 +28,7 @@ rustPlatform.buildRustPackage {
   cargoLock.lockFile = ../Cargo.lock;
 
   nativeBuildInputs = [
+    makeWrapper
     pkg-config
     rustPlatform.bindgenHook
   ];
@@ -51,12 +54,16 @@ rustPlatform.buildRustPackage {
 
   # winit loads these at runtime via dlopen
   postFixup = ''
-    patchelf --add-rpath ${
-      lib.makeLibraryPath [
-        libxkbcommon
-        wayland
-      ]
-    } $out/bin/zenzai-dialog-print
+    for executable in zenzai-dialog-print zenzai-app-select; do
+      patchelf --add-rpath ${
+        lib.makeLibraryPath [
+          libxkbcommon
+          wayland
+        ]
+      } "$out/bin/$executable"
+    done
+    wrapProgram "$out/bin/zenzai-app-select" \
+      --prefix PATH : ${lib.makeBinPath [ xdg-utils ]}
   '';
 
   meta = {

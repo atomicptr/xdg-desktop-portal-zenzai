@@ -1,3 +1,4 @@
+pub mod appchooser;
 pub mod appearance;
 pub mod config;
 pub mod ipc;

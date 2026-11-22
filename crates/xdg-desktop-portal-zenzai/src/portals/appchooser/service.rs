@@ -1,71 +1,32 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, path::PathBuf, process::Stdio};
 
 use anyhow::{Context, Result, bail};
-use termlauncher::Terminal;
-use url::Url;
+use tokio::{io::AsyncWriteExt, process::Command};
 use zbus::{ObjectPath, OwnedVariant, Variant, fdo, interface};
+use zenzai_core::ipc::{AppSelectRequest, EXIT_CANCELLED, EXIT_SUCCESS};
 
-use crate::utils::matches_glob;
-
-use super::{
-    config::{AppChooserConfig, RunnerType, Target},
-    launch::{Launchable, pick, resolve, spawn},
-};
-
-const RESPONSE_SUCCESS: u32 = 0;
-const RESPONSE_CANCELLED: u32 = 1;
+pub const SELECT_COMMAND: &str = "zenzai-app-select";
 
 pub struct AppChooserService {
-    pub terminal: Terminal,
-    pub config: AppChooserConfig,
+    pub command: PathBuf,
 }
 
 impl AppChooserService {
-    // configured defaults win, the most specific pattern first, then the application's suggestions
-    fn targets(&self, content_type: &str, choices: &[&str]) -> Vec<Target> {
-        let defaults = &self.config.defaults;
+    async fn choose(&self, request: &AppSelectRequest) -> Result<u32> {
+        let mut child = Command::new(&self.command)
+            .arg("--portal")
+            .stdin(Stdio::piped())
+            .kill_on_drop(true)
+            .spawn()
+            .with_context(|| format!("could not start {}", self.command.display()))?;
+        let mut stdin = child.stdin.take().context("could not open chooser stdin")?;
+        stdin.write_all(&serde_json::to_vec(request)?).await?;
+        drop(stdin);
 
-        let mapping = defaults.get(content_type).or_else(|| {
-            defaults
-                .iter()
-                .filter(|(pattern, _)| matches_glob(pattern, content_type))
-                .max_by_key(|(pattern, _)| pattern.len())
-                .map(|(_, mapping)| mapping)
-        });
-
-        match mapping {
-            Some(mapping) => mapping.targets().to_vec(),
-            None => choices
-                .iter()
-                .map(|choice| Target::DesktopFile(choice.to_string()))
-                .collect(),
-        }
-    }
-
-    async fn choose(&self, file: &str, targets: &[Target]) -> Result<u32> {
-        // a single choice needs no picker, unresolvable desktop files are skipped like before
-        let launchables: Vec<Launchable> = targets
-            .iter()
-            .filter_map(|target| {
-                resolve(target, file, &self.terminal)
-                    .inspect_err(|err| tracing::warn!("{err:#}"))
-                    .ok()
-            })
-            .collect();
-
-        if launchables.is_empty() {
-            bail!("no application available for {file}");
-        }
-
-        let runner = match &self.config.runner {
-            Some(RunnerType::Dmenu(runner)) => runner,
-            None if launchables.len() == 1 => &launchables[0].command,
-            None => bail!("several applications match but no runner is configured"),
-        };
-
-        match pick(runner, &launchables).await? {
-            Some(choice) => spawn(&choice.command).map(|()| RESPONSE_SUCCESS),
-            None => Ok(RESPONSE_CANCELLED),
+        match child.wait().await?.code() {
+            Some(EXIT_SUCCESS) => Ok(0),
+            Some(EXIT_CANCELLED) => Ok(1),
+            status => bail!("application chooser failed with status {status:?}"),
         }
     }
 }
@@ -80,9 +41,7 @@ impl AppChooserService {
         choices: Vec<&str>,
         options: HashMap<&str, Variant<'_>>,
     ) -> fdo::Result<(u32, HashMap<String, OwnedVariant>)> {
-        tracing::debug!(
-            "ChooseApplication: app_id={app_id} choices={choices:?} options={options:?}"
-        );
+        tracing::debug!("ChooseApplication: app_id={app_id} choices={choices:?}");
 
         let option = |key| {
             options
@@ -90,23 +49,18 @@ impl AppChooserService {
                 .and_then(|value| value.downcast_ref::<&str>().ok())
                 .with_context(|| format!("missing option {key}"))
         };
-
         let result = async {
-            let uri = option("uri")?;
-            let content_type = option("content_type")?;
+            let request = AppSelectRequest {
+                uri: option("uri")?.to_string(),
+                content_type: option("content_type")?.to_string(),
+                choices: choices.into_iter().map(str::to_string).collect(),
+            };
+            self.choose(&request).await
+        }
+        .await;
 
-            // applications pass URIs, programs expect local paths
-            let file = Url::parse(uri)
-                .ok()
-                .and_then(|url| url.to_file_path().ok())
-                .map_or(uri.to_string(), |path| path.display().to_string());
-
-            self.choose(&file, &self.targets(content_type, &choices))
-                .await
-        };
-
-        match result.await {
-            // the backend launches the application itself, so there are no results for the frontend
+        match result {
+            // Preserve the existing backend-owned launch flow, including custom commands.
             Ok(response) => Ok((response, HashMap::new())),
             Err(err) => {
                 tracing::error!("{err:#}");

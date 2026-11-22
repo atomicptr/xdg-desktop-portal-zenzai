@@ -12,7 +12,8 @@ A collection of several xdg-desktop-portal implementations to serve more lightwe
 
 Tools integrated with the portal
 
-- `zenzai-dialog-print` - A custom print dialog
+- `zenzai-app-select` - Custom app chooser dialog
+- `zenzai-dialog-print` - Custom print dialog
 
 ## Install
 
@@ -63,15 +64,11 @@ terminal = "ghostty"
 ### App Chooser Portal Config
 [appchooser]
 enabled = true
-
-[appchooser.runner]
-type = "dmenu" # currently only dmenu style API is supported (list of files into stdin)
-command = "wofi"
-arguments = ["--dmenu"]
+command = "zenzai-app-select" # path to the `zenzai-app-select` cli, looked up on PATH by default
 
 # list of content types -> app associations
 [appchooser.defaults]
-"text/plain" = { command = "ghostty", arguments = ["-e", "nvim"] } # run arbitrary commands
+"text/plain" = { command = "ghostty", arguments = ["-e", "nvim", "--", "%file%"] } # run arbitrary commands
 "image/jpeg" = "io.github.woelper.Oculante" # or execute desktop files
 "image/*" = ["io.github.woelper.Oculante.desktop", { command = "imv" }]
 
@@ -91,7 +88,7 @@ some-number = 1337
 enabled = true
 command = "zenzai-dialog-print" # path to the `zenzai-dialog-print` cli, looked up on PATH by default
 
-### Theme for internal tools like `zenzai-dialog-print`
+### Theme for internal tools like `zenzai-app-select` and `zenzai-dialog-print`
 [theme]
 name = "catppuccin-mocha" # any built-in iced theme, defaults to light/dark based on settings.color-scheme
 font = "Inter"

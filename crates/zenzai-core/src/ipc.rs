@@ -38,3 +38,10 @@ pub struct PrintResponse {
     pub settings: PrintSettings,
     pub page_setup: PageSetup,
 }
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct AppSelectRequest {
+    pub uri: String,
+    pub content_type: String,
+    pub choices: Vec<String>,
+}

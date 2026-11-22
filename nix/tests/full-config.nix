@@ -15,11 +15,7 @@
 
   portals.appchooser = {
     enable = true;
-    runner = {
-      type = "dmenu";
-      command = "wofi";
-      arguments = [ "--dmenu" ];
-    };
+    command = "zenzai-app-select";
     defaults = {
       "text/plain" = {
         command = "ghostty";

@@ -1,25 +1,7 @@
 use serde::Deserialize;
+use zenzai_core::appchooser::{AppChooserConfig, TerminalName};
 
-use crate::portals::{
-    appchooser::config::AppChooserConfig, print::config::PrintConfig,
-    settings::config::SettingsConfig,
-};
-
-// `{ custom = "..." }` is the format used before 0.4.0, keep existing configs working
-#[derive(Debug, Deserialize)]
-#[serde(untagged)]
-pub enum TerminalName {
-    Name(String),
-    Custom { custom: String },
-}
-
-impl TerminalName {
-    pub fn as_str(&self) -> &str {
-        match self {
-            Self::Name(name) | Self::Custom { custom: name } => name,
-        }
-    }
-}
+use crate::portals::{print::config::PrintConfig, settings::config::SettingsConfig};
 
 #[derive(Debug, Default, Deserialize)]
 pub struct Config {
@@ -55,7 +37,7 @@ mod tests {
 
         let appchooser = config.appchooser.unwrap();
         assert!(appchooser.enabled);
-        assert!(appchooser.runner.is_some());
+        assert!(appchooser.command.is_some());
         assert_eq!(appchooser.defaults.len(), 3);
 
         let print = config.print.unwrap();
