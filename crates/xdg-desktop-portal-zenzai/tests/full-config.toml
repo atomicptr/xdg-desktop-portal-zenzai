@@ -1,0 +1,41 @@
+terminal = "wezterm"
+
+[appchooser]
+enabled = true
+
+[appchooser.defaults]
+"image/jpeg" = "io.github.woelper.Oculante"
+"image/*" = ["io.github.woelper.Oculante.desktop", { arguments = [], command = "imv" }]
+"text/plain" = { arguments = ["-e", "nvim"], command = "ghostty" }
+
+[appchooser.runner]
+arguments = ["--dmenu"]
+command = "wofi"
+type = "dmenu"
+
+[print]
+command = "zenzai-dialog-print"
+enabled = true
+
+[settings]
+accent-color = "#b4befe"
+color-scheme = "dark"
+contrast = "high"
+enabled = true
+
+[settings.dict."org.gnome.SomeApp"]
+some-key = "some value"
+some-number = 1337
+
+[theme]
+font = "Inter"
+name = "catppuccin-mocha"
+text-size = 14
+
+[theme.palette]
+background = "#1e1e2e"
+danger = "#f38ba8"
+primary = "#b4befe"
+success = "#a6e3a1"
+text = "#cdd6f4"
+warning = "#f9e2af"

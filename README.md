@@ -6,13 +6,51 @@ A collection of several xdg-desktop-portal implementations to serve more lightwe
 
 - [App Chooser](https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.impl.portal.AppChooser.html) - choose an application
 - [Settings](https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.impl.portal.Settings.html) - control color scheme, accent color and appearance
+- [Print](https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.impl.portal.Print.html) - print documents (requires CUPS)
+
+## Tools
+
+Tools integrated with the portal
+
+- `zenzai-dialog-print` - A custom print dialog
 
 ## Install
 
-Available via:
+### NixOS (flakes)
 
-- nix: [atomicptr/nix](https://github.com/atomicptr/nix) via **pkgs.atomicptr.xdg-desktop-portal-zenzai**
-- cargo: [xdg-desktop-portal-zenzai](https://crates.io/crates/xdg-desktop-portal-zenzai) (use meson to properly install everything)
+```nix
+{
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    zenzai = {
+      url = "github:atomicptr/xdg-desktop-portal-zenzai";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+  };
+
+  outputs = { nixpkgs, zenzai, ... }: {
+    nixosConfigurations.myhost = nixpkgs.lib.nixosSystem {
+      system = "x86_64-linux";
+      modules = [
+        ./configuration.nix
+        zenzai.nixosModules.default
+        {
+          services.xdg-desktop-portal-zenzai = {
+            enable = true;
+            portals.settings = {
+              enable = true;
+              colorScheme = "dark";
+              accentColor = "#b4befe";
+            };
+          };
+
+          xdg.portal.config.Hyprland."org.freedesktop.impl.portal.Settings" = [ "zenzai" ];
+        }
+      ];
+    };
+  };
+}
+```
 
 ## Configuration
 
@@ -35,7 +73,7 @@ arguments = ["--dmenu"]
 [appchooser.defaults]
 "text/plain" = { command = "ghostty", arguments = ["-e", "nvim"] } # run arbitrary commands
 "image/jpeg" = "io.github.woelper.Oculante" # or execute desktop files
-"image/webp" = ["io.github.woelper.Oculante.desktop", "com.brave.Browser.desktop"] # you can also always pick from a group
+"image/*" = ["io.github.woelper.Oculante.desktop", { command = "imv" }]
 
 ### Settings Portal Config
 [settings]
@@ -43,10 +81,24 @@ enabled = true # portals have to be explicitly enabled
 color-scheme = "dark" # set color scheme to dark/light
 accent-color = "#b4befe" # define an accent color
 
-# some apps query arbitrary data from the settings portal which you can set like this:
+#### some apps query arbitrary data from the settings portal which you can set like this:
 [settings.dict."org.gnome.SomeApp"]
 some-key = "some value"
 some-number = 1337
+
+### Print Portal Config
+[print]
+enabled = true
+command = "zenzai-dialog-print" # path to the `zenzai-dialog-print` cli, looked up on PATH by default
+
+### Theme for internal tools like `zenzai-dialog-print`
+[theme]
+name = "catppuccin-mocha" # any built-in iced theme, defaults to light/dark based on settings.color-scheme
+font = "Inter"
+text-size = 14
+
+[theme.palette] # optional overrides of background, text, primary, success, warning, danger
+primary = "#b4befe" # defaults to settings.accent-color
 ```
 
 ## How to use it
@@ -58,6 +110,7 @@ To use zenzai you need to create `~/.config/xdg-desktop-portal/CURRENT_DESKTOP_N
 default=hyprland;zenzai;gtk
 org.freedesktop.impl.portal.AppChooser=zenzai
 org.freedesktop.impl.portal.Settings=zenzai
+org.freedesktop.impl.portal.Print=zenzai
 ```
 
 ## Motivation

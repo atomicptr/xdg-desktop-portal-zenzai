@@ -1,0 +1,20 @@
+[package]
+name = "zenzai-core"
+description = "Shared functionality for xdg-desktop-portal-zenzai and its companion tools"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+readme = "../../README.md"
+
+[features]
+ui = ["dep:iced"]
+
+[dependencies]
+anyhow.workspace = true
+csscolorparser.workspace = true
+dirs.workspace = true
+iced = { workspace = true, optional = true }
+serde.workspace = true
+toml.workspace = true

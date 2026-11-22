@@ -1,18 +1,29 @@
-[package]
-name = "xdg-desktop-portal-zenzai"
-description = "A collection of several xdg-desktop-portal implementations to serve more lightweight wayland compositors like Hyprland"
-version = "0.3.6"
-edition = "2024"
-license = "GPL-3.0-or-later"
+[workspace]
+resolver = "3"
+members = ["crates/*"]
 
-[dependencies]
-csscolorparser = "0.9.2"
-rand = "0.10.4"
-rust-ini = "0.21.3"
+[workspace.package]
+version = "0.4.0"
+edition = "2024"
+rust-version = "1.99"
+license = "GPL-3.0-or-later"
+repository = "https://github.com/atomicptr/xdg-desktop-portal-zenzai"
+
+[workspace.dependencies]
+zenzai-core = { path = "crates/zenzai-core", version = "0.4.0" }
+anyhow = "1.0.104"
+csscolorparser = { version = "0.9.2", features = ["serde"] }
+dirs = "7.0.0"
 serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+tempfile = "3.27.0"
 tokio = { version = "1.54.1", features = ["full"] }
 toml = "1.2.2"
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
 which = "8.0.6"
-zbus = { version = "6.5.0", features = ["tokio"] }
+iced = { version = "0.14.0", default-features = false, features = ["tiny-skia", "wayland", "image-without-codecs", "tokio", "crisp", "advanced"] }
+
+# PDF rendering and the UI are unusably slow unoptimized, keep dependencies fast in dev builds
+[profile.dev.package."*"]
+opt-level = 3
