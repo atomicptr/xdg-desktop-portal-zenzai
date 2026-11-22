@@ -4,7 +4,10 @@ use zenzai_core::{
     appearance::ThemeConfig,
 };
 
-use crate::portals::{print::config::PrintConfig, settings::config::SettingsConfig};
+use crate::portals::{
+    notification::config::NotificationConfig, print::config::PrintConfig,
+    settings::config::SettingsConfig,
+};
 
 #[derive(Debug, Default, Deserialize)]
 pub struct Config {
@@ -12,6 +15,7 @@ pub struct Config {
     pub settings: Option<SettingsConfig>,
     pub appchooser: Option<AppChooserConfig>,
     pub print: Option<PrintConfig>,
+    pub notification: Option<NotificationConfig>,
     // Validate the shared GUI schema even though the daemon does not use it.
     #[serde(rename = "theme")]
     _theme: Option<ThemeConfig>,
@@ -50,6 +54,8 @@ mod tests {
         let print = config.print.unwrap();
         assert!(print.enabled);
         assert!(print.command.is_some());
+
+        assert!(config.notification.unwrap().enabled);
 
         let ui: UiConfig = toml::from_str(FULL_CONFIG).unwrap();
         let palette = &ui.theme.palette;

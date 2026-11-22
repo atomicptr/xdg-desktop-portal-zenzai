@@ -7,6 +7,7 @@ A collection of several xdg-desktop-portal implementations to serve more lightwe
 - [App Chooser](https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.impl.portal.AppChooser.html) - choose an application
 - [Settings](https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.impl.portal.Settings.html) - control color scheme, accent color and appearance
 - [Print](https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.impl.portal.Print.html) - print documents (requires CUPS)
+- [Notification](https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.impl.portal.Notification.html) - forward notifications to a local daemon such as mako or dunst
 
 ## Tools
 
@@ -89,6 +90,10 @@ some-number = 1337
 enabled = true
 command = "zenzai-dialog-print" # path to the `zenzai-dialog-print` cli, looked up on PATH by default
 
+### Notification Portal Config
+[notification]
+enabled = true # requires a daemon providing org.freedesktop.Notifications
+
 ### Theme for internal tools like `zenzai-app-select` and `zenzai-dialog-print`
 [theme]
 name = "catppuccin-mocha" # any built-in iced theme, defaults to light/dark based on settings.color-scheme
@@ -109,6 +114,7 @@ default=hyprland;zenzai;gtk
 org.freedesktop.impl.portal.AppChooser=zenzai
 org.freedesktop.impl.portal.Settings=zenzai
 org.freedesktop.impl.portal.Print=zenzai
+org.freedesktop.impl.portal.Notification=zenzai
 ```
 
 ## Motivation

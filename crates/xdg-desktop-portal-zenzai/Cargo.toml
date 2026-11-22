@@ -10,6 +10,7 @@ readme = "../../README.md"
 
 [dependencies]
 anyhow.workspace = true
+futures-util = { version = "0.3.32", default-features = false, features = ["std"] }
 notify = "8.2.0"
 rand = "0.10.4"
 serde.workspace = true

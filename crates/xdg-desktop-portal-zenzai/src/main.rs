@@ -3,6 +3,7 @@ use config::Config;
 use constants::{APP_VERSION, DBUS_NAME, DBUS_PATH};
 use portals::{
     appchooser::service::{AppChooserService, SELECT_COMMAND},
+    notification::service::NotificationService,
     print::{dialog::DIALOG_COMMAND, service::PrintService},
     settings::service::SettingsService,
 };
@@ -94,6 +95,12 @@ async fn main() -> Result<()> {
                 "portal: org.freedesktop.portal.Print disabled, could not find print dialog {command:?}"
             ),
         }
+    }
+
+    if config.notification.is_some_and(|config| config.enabled) {
+        any_enabled = true;
+        tracing::info!("portal: org.freedesktop.portal.Notification enabled!");
+        conn = conn.serve_at(DBUS_PATH, NotificationService::default());
     }
 
     if !any_enabled {

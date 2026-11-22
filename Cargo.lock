@@ -4822,6 +4822,7 @@ name = "xdg-desktop-portal-zenzai"
 version = "0.4.0"
 dependencies = [
  "anyhow",
+ "futures-util",
  "notify",
  "rand",
  "serde",

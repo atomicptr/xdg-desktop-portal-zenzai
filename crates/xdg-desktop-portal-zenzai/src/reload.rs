@@ -58,6 +58,7 @@ pub struct EnabledPortals {
     settings: bool,
     appchooser: bool,
     print: bool,
+    notification: bool,
 }
 
 impl From<&Config> for EnabledPortals {
@@ -72,6 +73,10 @@ impl From<&Config> for EnabledPortals {
                 .as_ref()
                 .is_some_and(|config| config.enabled),
             print: config.print.as_ref().is_some_and(|config| config.enabled),
+            notification: config
+                .notification
+                .as_ref()
+                .is_some_and(|config| config.enabled),
         }
     }
 }

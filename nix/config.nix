@@ -31,6 +31,8 @@ lib.filterAttrsRecursive (_: value: value != null) {
       if print.command != null then print.command else lib.getExe' cfg.package "zenzai-dialog-print";
   };
 
+  notification.enabled = cfg.portals.notification.enable;
+
   theme = {
     inherit (cfg.theme) name font palette;
     text-size = cfg.theme.textSize;

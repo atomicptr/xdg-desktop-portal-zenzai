@@ -125,6 +125,8 @@ in
 
       command = nullOr types.str "Print dialog executable, defaults to the packaged zenzai-dialog-print.";
     };
+
+    notification.enable = mkEnableOption "the Notification portal (requires a local notification daemon)";
   };
 
   theme = {

@@ -40,6 +40,8 @@
     command = "zenzai-dialog-print";
   };
 
+  portals.notification.enable = true;
+
   theme = {
     name = "catppuccin-mocha";
     font = "Inter";
