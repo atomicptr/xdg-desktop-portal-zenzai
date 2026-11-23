@@ -15,7 +15,6 @@ in
   };
 
   config = lib.mkIf cfg.enable {
-    # User config takes precedence.
     environment.etc."xdg/xdg-desktop-portal-zenzai/config.toml".source =
       (pkgs.formats.toml { }).generate "config.toml"
         (import ./config.nix { inherit lib; } cfg);
@@ -26,9 +25,12 @@ in
     };
 
     systemd.user.services.xdg-desktop-portal-zenzai = lib.mkIf cfg.debug {
-      # Keep the session PATH used to resolve user-configured applications.
+      overrideStrategy = "asDropin";
+
       enableDefaultPath = false;
-      environment.RUST_LOG = "warn,xdg_desktop_portal_zenzai=debug,zenzai_core=debug,zenzai_app_select=debug,zenzai_dialog_print=debug";
+      environment = {
+        RUST_LOG = "warn,xdg_desktop_portal_zenzai=debug,zenzai_core=debug,zenzai_app_select=debug,zenzai_dialog_print=debug";
+      };
     };
 
     warnings = lib.optional (cfg.portals.print.enable && !config.services.printing.enable) ''
