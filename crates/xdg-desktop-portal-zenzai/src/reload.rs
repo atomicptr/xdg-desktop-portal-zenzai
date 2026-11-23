@@ -22,7 +22,7 @@ use crate::{
     portals::{
         access::DIALOG_COMMAND as ACCESS_DIALOG_COMMAND, appchooser::service::SELECT_COMMAND,
         dynamic_launcher::DIALOG_COMMAND as LAUNCHER_DIALOG_COMMAND, print::dialog::DIALOG_COMMAND,
-        settings::service::SettingsService,
+        settings::service::SettingsService, usb::DIALOG_COMMAND as USB_DIALOG_COMMAND,
     },
     utils::command::resolve_command,
 };
@@ -59,6 +59,7 @@ fn watch_directories(targets: &HashSet<PathBuf>) -> HashMap<PathBuf, DirectoryId
 #[derive(PartialEq, Eq)]
 pub struct EnabledPortals {
     access: bool,
+    usb: bool,
     settings: bool,
     appchooser: bool,
     dynamic_launcher: bool,
@@ -71,6 +72,7 @@ impl From<&Config> for EnabledPortals {
     fn from(config: &Config) -> Self {
         Self {
             access: config.access.as_ref().is_some_and(|config| config.enabled),
+            usb: config.usb.as_ref().is_some_and(|config| config.enabled),
             settings: config
                 .settings
                 .as_ref()
@@ -232,6 +234,7 @@ fn watch_targets() -> HashSet<PathBuf> {
 pub struct Reload {
     pub enabled: EnabledPortals,
     pub access: Option<watch::Sender<PathBuf>>,
+    pub usb: Option<watch::Sender<PathBuf>>,
     pub appchooser: Option<watch::Sender<PathBuf>>,
     pub dynamic_launcher: Option<watch::Sender<PathBuf>>,
     pub email: Option<watch::Sender<PathBuf>>,
@@ -280,6 +283,15 @@ impl Reload {
                 config.command.as_deref().unwrap_or(ACCESS_DIALOG_COMMAND),
             );
         }
+
+        if let Some(sender) = &self.usb {
+            let config = config.usb.unwrap_or_default();
+            update_command(
+                sender,
+                config.command.as_deref().unwrap_or(USB_DIALOG_COMMAND),
+            );
+        }
+
         if let Some(sender) = &self.appchooser {
             let config = config.appchooser.unwrap_or_default();
             update_command(sender, config.command.as_deref().unwrap_or(SELECT_COMMAND));

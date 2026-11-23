@@ -54,6 +54,12 @@ in
       command = nullOr types.str "Access dialog executable, defaults to the packaged zenzai-dialog-access.";
     };
 
+    usb = {
+      enable = mkEnableOption "the USB portal";
+
+      command = nullOr types.str "USB approval dialog executable, defaults to the packaged zenzai-dialog-access.";
+    };
+
     settings = {
       enable = mkEnableOption "the Settings portal";
 

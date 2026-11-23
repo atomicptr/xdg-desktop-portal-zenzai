@@ -11,6 +11,7 @@ A collection of several xdg-desktop-portal implementations to serve more lightwe
 - [Notification](https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.impl.portal.Notification.html) - forward notifications to a local daemon such as mako or dunst
 - [Print](https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.impl.portal.Print.html) - print documents (requires CUPS)
 - [Settings](https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.impl.portal.Settings.html) - control color scheme, accent color and appearance
+- [USB](https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.impl.portal.Usb.html) - approve USB device access requests
 
 ## Tools
 
@@ -71,6 +72,11 @@ icon-theme = "Papirus"
 ### Access Portal Config (opt-in)
 [access]
 enabled = true
+command = "zenzai-dialog-access" # executable override, looked up on PATH by default
+
+### USB Portal Config (opt-in)
+[usb]
+enabled = true # independent of access.enabled
 command = "zenzai-dialog-access" # executable override, looked up on PATH by default
 
 ### App Chooser Portal Config
@@ -139,6 +145,7 @@ org.freedesktop.impl.portal.Email=zenzai
 org.freedesktop.impl.portal.Settings=zenzai
 org.freedesktop.impl.portal.Print=zenzai
 org.freedesktop.impl.portal.Notification=zenzai
+org.freedesktop.impl.portal.Usb=zenzai
 ```
 
 ## Motivation

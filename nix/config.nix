@@ -3,6 +3,7 @@ cfg:
 let
   inherit (cfg.portals)
     access
+    usb
     settings
     appchooser
     dynamicLauncher
@@ -18,6 +19,12 @@ lib.filterAttrsRecursive (_: value: value != null) {
     enabled = access.enable;
     command =
       if access.command != null then access.command else lib.getExe' cfg.package "zenzai-dialog-access";
+  };
+
+  usb = {
+    enabled = usb.enable;
+    command =
+      if usb.command != null then usb.command else lib.getExe' cfg.package "zenzai-dialog-access";
   };
 
   settings = {

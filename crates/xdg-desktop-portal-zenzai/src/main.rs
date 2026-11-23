@@ -9,6 +9,7 @@ use portals::{
     notification::service::NotificationService,
     print::{dialog::DIALOG_COMMAND, service::PrintService},
     settings::service::SettingsService,
+    usb::{DIALOG_COMMAND as USB_DIALOG_COMMAND, UsbService},
 };
 use reload::{ConfigWatcher, EnabledPortals, Reload};
 use tokio::sync::watch;
@@ -22,9 +23,12 @@ mod constants;
 mod portals;
 mod reload;
 mod utils;
+rust_i18n::i18n!("../../locales", fallback = "en");
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    zenzai_core::i18n::init();
+
     // Tracing targets use the underscored crate name.
     let level = if cfg!(debug_assertions) {
         "debug"
@@ -43,6 +47,7 @@ async fn main() -> Result<()> {
     let mut reload = Reload {
         enabled: EnabledPortals::from(&config),
         access: None,
+        usb: None,
         appchooser: None,
         dynamic_launcher: None,
         email: None,
@@ -78,6 +83,24 @@ async fn main() -> Result<()> {
                 conn = conn.serve_at(DBUS_PATH, AccessService { command });
             }
             Err(err) => tracing::error!("Access disabled, could not find {command:?}: {err}"),
+        }
+    }
+
+    if let Some(config) = config.usb
+        && config.enabled
+    {
+        let command = config.command.as_deref().unwrap_or(USB_DIALOG_COMMAND);
+
+        match resolve_command(command) {
+            Ok(command) => {
+                any_enabled = true;
+
+                tracing::info!("portal: org.freedesktop.portal.Usb enabled!");
+                let (sender, command) = watch::channel(command);
+                reload.usb = Some(sender);
+                conn = conn.serve_at(DBUS_PATH, UsbService { command });
+            }
+            Err(err) => tracing::error!("Usb disabled, could not find {command:?}: {err}"),
         }
     }
 

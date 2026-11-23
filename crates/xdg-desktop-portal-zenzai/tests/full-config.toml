@@ -40,6 +40,10 @@ enabled = true
 some-key = "some value"
 some-number = 1337
 
+[usb]
+command = "zenzai-dialog-access"
+enabled = true
+
 [theme]
 font = "Inter"
 name = "catppuccin-mocha"

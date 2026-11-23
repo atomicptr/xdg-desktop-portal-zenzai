@@ -5122,6 +5122,7 @@ dependencies = [
  "futures-util",
  "notify",
  "rand",
+ "rust-i18n",
  "serde",
  "serde_json",
  "tempfile",

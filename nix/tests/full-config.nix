@@ -8,6 +8,11 @@
     command = "zenzai-dialog-access";
   };
 
+  portals.usb = {
+    enable = true;
+    command = "zenzai-dialog-access";
+  };
+
   portals.settings = {
     enable = true;
     colorScheme = "dark";

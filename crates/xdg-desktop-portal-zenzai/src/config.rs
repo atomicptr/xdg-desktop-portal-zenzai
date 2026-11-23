@@ -7,12 +7,13 @@ use zenzai_core::{
 use crate::portals::{
     access::AccessConfig, dynamic_launcher::DynamicLauncherConfig, email::EmailConfig,
     notification::config::NotificationConfig, print::config::PrintConfig,
-    settings::config::SettingsConfig,
+    settings::config::SettingsConfig, usb::UsbConfig,
 };
 
 #[derive(Debug, Default, Deserialize)]
 pub struct Config {
     pub access: Option<AccessConfig>,
+    pub usb: Option<UsbConfig>,
     pub terminal: Option<TerminalName>,
     pub settings: Option<SettingsConfig>,
     pub appchooser: Option<AppChooserConfig>,
@@ -48,6 +49,10 @@ mod tests {
         let access = config.access.unwrap();
         assert!(access.enabled);
         assert_eq!(access.command.as_deref(), Some("zenzai-dialog-access"));
+
+        let usb = config.usb.unwrap();
+        assert!(usb.enabled);
+        assert_eq!(usb.command.as_deref(), Some("zenzai-dialog-access"));
 
         let settings = config.settings.unwrap();
         assert!(settings.enabled);

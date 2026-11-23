@@ -13,6 +13,7 @@ anyhow.workspace = true
 futures-util = { version = "0.3.32", default-features = false, features = ["std"] }
 notify = "8.2.0"
 rand = "0.10.4"
+rust-i18n.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 tempfile.workspace = true
@@ -22,7 +23,7 @@ tracing-subscriber.workspace = true
 url = "2.5.9"
 which.workspace = true
 zbus = { version = "6.5.0", features = ["tokio"] }
-zenzai-core.workspace = true
+zenzai-core = { workspace = true, features = ["i18n"] }
 
 [dev-dependencies]
 toml.workspace = true

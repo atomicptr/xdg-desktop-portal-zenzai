@@ -1,3 +1,4 @@
+pub mod access_dialog;
 pub mod command;
 
 // a trailing `*` matches any suffix, e.g. "image/*" or "org.gnome.*"
