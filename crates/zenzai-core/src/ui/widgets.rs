@@ -73,9 +73,9 @@ fn segment_style(theme: &Theme, status: button::Status, is_selected: bool) -> bu
 // Match pane widths so status text wraps without squeezing the buttons.
 pub fn action_bar<'a, Message: Clone + 'a>(
     status: Option<Element<'a, Message>>,
-    cancel_label: &'a str,
+    cancel_label: impl text::IntoFragment<'a>,
     on_cancel: Message,
-    accept_label: &'a str,
+    accept_label: impl text::IntoFragment<'a>,
     on_accept: Option<Message>,
 ) -> Element<'a, Message> {
     let buttons = row![
@@ -99,7 +99,7 @@ pub fn action_bar<'a, Message: Clone + 'a>(
 }
 
 pub fn form_row<'a, Message: 'a>(
-    label: &'a str,
+    label: impl text::IntoFragment<'a>,
     control: impl Into<Element<'a, Message>>,
 ) -> Element<'a, Message> {
     row![

@@ -98,3 +98,33 @@ pub struct LauncherResponse {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub icon: Option<Vec<u8>>,
 }
+
+// Access dialogs contain text only, including serialized choices.
+pub const MAX_ACCESS_MESSAGE_BYTES: u64 = 1024 * 1024;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AccessRequest {
+    pub app_id: String,
+    pub parent_window: String,
+    pub title: String,
+    pub subtitle: String,
+    pub body: String,
+    pub deny_label: Option<String>,
+    pub grant_label: Option<String>,
+    pub icon: Option<String>,
+    pub modal: bool,
+    pub choices: Vec<AccessChoice>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AccessChoice {
+    pub id: String,
+    pub label: String,
+    pub options: Vec<(String, String)>,
+    pub selected: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct AccessResponse {
+    pub choices: Vec<(String, String)>,
+}

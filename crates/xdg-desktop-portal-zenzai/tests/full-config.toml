@@ -1,4 +1,9 @@
 terminal = "wezterm"
+icon-theme = "Papirus"
+
+[access]
+command = "zenzai-dialog-access"
+enabled = true
 
 [appchooser]
 command = "zenzai-app-select"

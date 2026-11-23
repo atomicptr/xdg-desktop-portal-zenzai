@@ -1,3 +1,5 @@
+use rust_i18n::t;
+
 use std::{
     collections::HashMap,
     fmt,
@@ -36,15 +38,8 @@ const APP_ID: &str = "zenzai-dialog-print";
 const WINDOW_SIZE: Size = Size::new(960.0, 620.0);
 const COMPACT_WIDTH: f32 = 850.0;
 const COMPACT_HEIGHT: f32 = 450.0;
-const DEFAULT_ACCEPT_LABEL: &str = "Print";
-const SAVE_ACCEPT_LABEL: &str = "Save";
-const CANCEL_LABEL: &str = "Cancel";
-const WAITING_FOR_DOCUMENT: &str = "Preparing preview…";
 const ACTION_SPACING: u32 = 8;
 const PREVIEW_TITLE_SIZE: u32 = 20;
-const SAVE_AS_PDF_LABEL: &str = "Save as PDF";
-const NO_PRINTERS: &str = "No printers found";
-const NOT_ACCEPTING: &str = "Printer is not accepting jobs";
 const SETTINGS_PADDING: [u16; 2] = [0, 12];
 const PERCENT: f64 = 100.0;
 
@@ -118,7 +113,7 @@ impl fmt::Display for Destination {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Printer(printer) => f.write_str(&printer.description),
-            Self::SavePdf => f.write_str(SAVE_AS_PDF_LABEL),
+            Self::SavePdf => f.write_str(&t!("print.save-as-pdf")),
         }
     }
 }
@@ -272,10 +267,11 @@ impl State {
         let pages = self.dialog.document.as_ref()?.page_count();
 
         if !self.page_options_apply() {
-            return Some(plural(pages, "page"));
+            return Some(t!("print.page-count", count = pages).into_owned());
         }
 
-        Some(plural(self.dialog.settings.sheet_count(pages), "sheet"))
+        let sheets = self.dialog.settings.sheet_count(pages);
+        Some(t!("print.sheet-count", count = sheets).into_owned())
     }
 
     pub(super) fn can_preview(&self) -> bool {
@@ -310,13 +306,6 @@ impl State {
         }
 
         iced::exit()
-    }
-}
-
-fn plural(count: u32, noun: &str) -> String {
-    match count {
-        1 => format!("1 {noun}"),
-        count => format!("{count} {noun}s"),
     }
 }
 
@@ -565,7 +554,7 @@ fn update(state: &mut State, message: Message) -> Task<Message> {
             };
 
             if printers.is_empty() {
-                state.error = Some(NO_PRINTERS.to_string());
+                state.error = Some(t!("print.no-printers-found").into_owned());
             }
 
             state.destinations = printers
@@ -578,7 +567,7 @@ fn update(state: &mut State, message: Message) -> Task<Message> {
         }
         Message::Printers(Err(err)) => {
             tracing::error!("{err}");
-            state.error = Some(err);
+            state.error = Some(t!("print.could-not-load-printers", error = err).into_owned());
 
             if state.dialog.allow_pdf {
                 select(state, Destination::SavePdf)
@@ -597,12 +586,14 @@ fn update(state: &mut State, message: Message) -> Task<Message> {
             match result {
                 Ok(caps) => {
                     apply_capabilities(&mut state.dialog.settings, &caps);
-                    state.error = (!caps.accepting_jobs).then(|| NOT_ACCEPTING.to_string());
+                    state.error = (!caps.accepting_jobs)
+                        .then(|| t!("print.printer-is-not-accepting-jobs").into_owned());
                     state.capabilities = Some(caps);
                 }
                 Err(err) => {
                     tracing::error!("{err}");
-                    state.error = Some(err);
+                    state.error =
+                        Some(t!("print.could-not-load-printer-options", error = err).into_owned());
                 }
             }
 
@@ -639,7 +630,8 @@ fn update(state: &mut State, message: Message) -> Task<Message> {
                 Ok(None) => {}
                 Err(err) => {
                     tracing::error!("{err}");
-                    state.error = Some(err);
+                    state.error =
+                        Some(t!("print.could-not-choose-output-file", error = err).into_owned());
                     state.manual_output = true;
                 }
             }
@@ -701,7 +693,7 @@ fn update(state: &mut State, message: Message) -> Task<Message> {
             }
             Err(err) => {
                 tracing::warn!("print preview failed: {err}");
-                state.error = Some(err);
+                state.error = Some(t!("print.could-not-prepare-preview", error = err).into_owned());
                 state.phase = Phase::Failed;
                 Task::none()
             }
@@ -762,16 +754,18 @@ fn subscription(_state: &State) -> Subscription<Message> {
 
 fn view(state: &State) -> Element<'_, Message> {
     let accept_label = match (state.phase, &state.dialog.accept_label, state.is_pdf()) {
-        (_, _, true) => SAVE_ACCEPT_LABEL,
-        (Phase::Settings, Some(label), false) => label.as_str(),
-        _ => DEFAULT_ACCEPT_LABEL,
+        (_, _, true) => t!("common.save"),
+        (Phase::Settings, Some(label), false) => label.as_str().into(),
+        _ => t!("print.print"),
     };
 
     if state.phase != Phase::Settings {
         let preview: Element<'_, Message> = if state.phase == Phase::Waiting {
-            container(text(WAITING_FOR_DOCUMENT)).center(Fill).into()
+            container(text(t!("print.preparing-preview")))
+                .center(Fill)
+                .into()
         } else if state.phase == Phase::WithoutPreview {
-            container(text(form::PREVIEW_UNAVAILABLE))
+            container(text(t!("print.preview-unavailable")))
                 .center(Fill)
                 .into()
         } else {
@@ -824,12 +818,15 @@ fn view(state: &State) -> Element<'_, Message> {
     .into()
 }
 
-fn actions<'a>(state: &'a State, accept_label: &'a str) -> Element<'a, Message> {
+fn actions<'a>(
+    state: &'a State,
+    accept_label: impl Into<text::Fragment<'a>>,
+) -> Element<'a, Message> {
     let buttons = row![
-        button(text(CANCEL_LABEL))
+        button(text(t!("common.cancel")))
             .style(button::secondary)
             .on_press(Message::Cancel),
-        button(text(accept_label))
+        button(text(accept_label.into()))
             .style(button::primary)
             .on_press_maybe(state.can_accept().then_some(Message::Accept)),
     ]

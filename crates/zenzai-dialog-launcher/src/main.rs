@@ -5,6 +5,7 @@ use std::{
 
 use anyhow::{Context, Result, ensure};
 use clap::{Parser, ValueEnum};
+use rust_i18n::t;
 use zenzai_core::ipc::{
     EXIT_CANCELLED, EXIT_ERROR, EXIT_SUCCESS, LauncherRequest as Request,
     LauncherResponse as Response, LauncherType, MAX_LAUNCHER_ICON_BYTES as MAX_ICON_BYTES,
@@ -14,6 +15,8 @@ use zenzai_core::ipc::{
 mod icon;
 mod picker;
 mod ui;
+
+rust_i18n::i18n!("../../locales", fallback = "en");
 
 #[derive(Parser)]
 #[command(version, about = "Approve launcher creation")]
@@ -34,6 +37,8 @@ enum Demo {
 
 #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
 fn main() -> ExitCode {
+    zenzai_core::i18n::init();
+
     tracing_subscriber::fmt()
         .with_writer(io::stderr)
         .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
@@ -94,9 +99,13 @@ fn demo_request(demo: Demo) -> Request {
 </svg>"##;
 
     let (name, launcher_type, target) = match demo {
-        Demo::Application => ("Demo Application", LauncherType::Application, None),
+        Demo::Application => (
+            t!("launcher.demo-application"),
+            LauncherType::Application,
+            None,
+        ),
         Demo::Web => (
-            "Example Website",
+            t!("launcher.example-website"),
             LauncherType::Webapp,
             Some("https://example.org".into()),
         ),

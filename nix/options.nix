@@ -46,7 +46,14 @@ in
     executable accepting `-e <command>`. Detected automatically when unset.
   '';
 
+  iconTheme = nullOr types.str "Icon theme used by all companion GUIs; preserves default lookup when unset.";
   portals = {
+    access = {
+      enable = mkEnableOption "the Access portal";
+
+      command = nullOr types.str "Access dialog executable, defaults to the packaged zenzai-dialog-access.";
+    };
+
     settings = {
       enable = mkEnableOption "the Settings portal";
 

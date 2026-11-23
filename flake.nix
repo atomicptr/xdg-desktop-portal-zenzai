@@ -28,12 +28,19 @@
 
       devShells = forAllSystems (pkgs: {
         default = pkgs.mkShell {
-          inputsFrom = [ (package pkgs) ];
+          nativeBuildInputs = [
+            pkgs.pkg-config
+            pkgs.rustPlatform.bindgenHook
+          ];
+
+          buildInputs = [ pkgs.cups ];
 
           packages = with pkgs; [
+            cargo
             clippy
             just
             rust-analyzer
+            rustc
             rustfmt
           ];
 

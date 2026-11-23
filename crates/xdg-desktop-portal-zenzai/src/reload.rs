@@ -20,7 +20,7 @@ use crate::{
     config::Config,
     constants::DBUS_PATH,
     portals::{
-        appchooser::service::SELECT_COMMAND,
+        access::DIALOG_COMMAND as ACCESS_DIALOG_COMMAND, appchooser::service::SELECT_COMMAND,
         dynamic_launcher::DIALOG_COMMAND as LAUNCHER_DIALOG_COMMAND, print::dialog::DIALOG_COMMAND,
         settings::service::SettingsService,
     },
@@ -58,6 +58,7 @@ fn watch_directories(targets: &HashSet<PathBuf>) -> HashMap<PathBuf, DirectoryId
 #[allow(clippy::struct_excessive_bools)]
 #[derive(PartialEq, Eq)]
 pub struct EnabledPortals {
+    access: bool,
     settings: bool,
     appchooser: bool,
     dynamic_launcher: bool,
@@ -69,6 +70,7 @@ pub struct EnabledPortals {
 impl From<&Config> for EnabledPortals {
     fn from(config: &Config) -> Self {
         Self {
+            access: config.access.as_ref().is_some_and(|config| config.enabled),
             settings: config
                 .settings
                 .as_ref()
@@ -229,6 +231,7 @@ fn watch_targets() -> HashSet<PathBuf> {
 
 pub struct Reload {
     pub enabled: EnabledPortals,
+    pub access: Option<watch::Sender<PathBuf>>,
     pub appchooser: Option<watch::Sender<PathBuf>>,
     pub dynamic_launcher: Option<watch::Sender<PathBuf>>,
     pub email: Option<watch::Sender<PathBuf>>,
@@ -270,6 +273,13 @@ impl Reload {
             }
         }
 
+        if let Some(sender) = &self.access {
+            let config = config.access.unwrap_or_default();
+            update_command(
+                sender,
+                config.command.as_deref().unwrap_or(ACCESS_DIALOG_COMMAND),
+            );
+        }
         if let Some(sender) = &self.appchooser {
             let config = config.appchooser.unwrap_or_default();
             update_command(sender, config.command.as_deref().unwrap_or(SELECT_COMMAND));

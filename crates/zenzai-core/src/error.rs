@@ -1,16 +1,16 @@
 use std::panic::{self, AssertUnwindSafe};
 
-use anyhow::Error;
-use iced::{
-    Element, Fill, Font, Size, Task,
-    widget::{button, column, container, text, text_editor},
-};
-
 use crate::{
     appearance::UiConfig,
     config,
     ui::{theme, widgets::PANE_PADDING},
 };
+use anyhow::Error;
+use iced::{
+    Element, Fill, Font, Size, Task,
+    widget::{button, column, container, text, text_editor},
+};
+use rust_i18n::t;
 
 const WINDOW_SIZE: Size = Size::new(480.0, 280.0);
 const SPACING: u32 = 12;
@@ -84,7 +84,7 @@ fn view(state: &ErrorDialog) -> Element<'_, Message> {
         text_editor(&state.details)
             .on_action(Message::Details)
             .height(Fill),
-        container(button("Close").on_press(Message::Close)).align_right(Fill),
+        container(button(text(t!("common.close"))).on_press(Message::Close)).align_right(Fill),
     ]
     .padding(PANE_PADDING)
     .spacing(SPACING)

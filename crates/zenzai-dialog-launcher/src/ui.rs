@@ -8,6 +8,7 @@ use iced::{
     },
     window,
 };
+use rust_i18n::t;
 use zenzai_core::{
     appearance::UiConfig,
     config,
@@ -85,7 +86,7 @@ pub fn run(mut request: Request) -> Result<Option<Response>> {
     };
 
     iced::application(boot, update, view)
-        .title("Create launcher")
+        .title(|_: &State| t!("launcher.create-launcher").into_owned())
         .theme(move |_: &State| theme.clone())
         .subscription(subscription)
         .settings(iced::Settings {
@@ -134,7 +135,10 @@ fn update(state: &mut State, message: Message) -> Task<Message> {
                     state.selected_icon = Some(selection.bytes);
                 }
                 Ok(None) => {}
-                Err(err) => state.error = Some(err),
+                Err(err) => {
+                    tracing::warn!("could not load launcher icon: {err}");
+                    state.error = Some(t!("launcher.could-not-load-launcher-icon").into_owned());
+                }
             }
         }
         Message::Accept if !state.picking && !state.request.name.trim().is_empty() => {
@@ -171,13 +175,13 @@ fn subscription(_: &State) -> Subscription<Message> {
 
 fn view(state: &State) -> Element<'_, Message> {
     let description = match state.request.launcher_type {
-        LauncherType::Application => "Add an application to your app menu.",
-        LauncherType::Webapp => "Add a website to your app menu.",
+        LauncherType::Application => t!("launcher.add-an-application-to-your-app-menu"),
+        LauncherType::Webapp => t!("launcher.add-a-website-to-your-app-menu"),
     };
     let mut content = column![
-        text("Create launcher").size(24),
+        text(t!("launcher.create-launcher")).size(24),
         text(description).style(text::secondary),
-        text(format!("Requested by: {}", state.request.app_id)).style(text::secondary),
+        text(t!("launcher.requested-by", app = state.request.app_id)).style(text::secondary),
     ]
     .spacing(SPACING);
     let mut preview = row![].spacing(20).align_y(Alignment::Center);
@@ -197,11 +201,11 @@ fn view(state: &State) -> Element<'_, Message> {
 
     if state.request.editable_icon {
         preview = preview.push(
-            button(if state.picking {
-                "Opening…"
+            button(text(if state.picking {
+                t!("launcher.opening")
             } else {
-                "Change icon…"
-            })
+                t!("launcher.change-icon")
+            }))
             .on_press_maybe((!state.picking).then_some(Message::PickIcon)),
         );
     }
@@ -211,11 +215,11 @@ fn view(state: &State) -> Element<'_, Message> {
         content = content.push(text(error).style(text::danger));
     }
 
-    content = content.push(text("Name").size(14));
+    content = content.push(text(t!("launcher.name")).size(14));
 
     content = if state.request.editable_name {
         content.push(
-            text_input("Launcher name", &state.request.name)
+            text_input(&t!("launcher.launcher-name"), &state.request.name)
                 .id(NAME_ID)
                 .on_input(Message::Name),
         )
@@ -228,7 +232,7 @@ fn view(state: &State) -> Element<'_, Message> {
     {
         content = content.push(
             column![
-                text("Website").size(14),
+                text(t!("launcher.website")).size(14),
                 text(target).style(text::secondary)
             ]
             .spacing(6),
@@ -242,9 +246,9 @@ fn view(state: &State) -> Element<'_, Message> {
         rule::horizontal(1),
         widgets::action_bar(
             None,
-            "Cancel",
+            t!("common.cancel"),
             Message::Cancel,
-            "Create",
+            t!("common.create"),
             (!state.picking && !state.request.name.trim().is_empty()).then_some(Message::Accept)
         ),
     ]

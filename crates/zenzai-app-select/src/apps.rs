@@ -13,7 +13,7 @@ use freedesktop_desktop_entry::{
 use termlauncher::{Application, CustomTerminal, Terminal};
 use url::Url;
 use which::which;
-use zenzai_core::{appchooser::Target, ipc::AppSelectRequest};
+use zenzai_core::{appchooser::Target, ipc::AppSelectRequest, ui::icons};
 
 use crate::email;
 
@@ -148,7 +148,7 @@ fn expand_arguments(arguments: &[String], file: &str) -> Vec<String> {
     expanded
 }
 
-pub fn discover(file: &str) -> Vec<App> {
+pub fn discover(file: &str, icon_theme: Option<&str>) -> Vec<App> {
     let locales = get_languages_from_env();
     let desktops = current_desktop().unwrap_or_default();
     let mut seen = HashSet::new();
@@ -169,7 +169,7 @@ pub fn discover(file: &str) -> Vec<App> {
                 continue;
             };
 
-            if let Ok(app) = from_entry(&entry, id, file, &locales, &desktops) {
+            if let Ok(app) = from_entry(&entry, id, file, &locales, &desktops, icon_theme) {
                 apps.push(app);
             }
         }
@@ -185,6 +185,7 @@ fn from_entry(
     file: &str,
     locales: &[String],
     desktops: &[String],
+    icon_theme: Option<&str>,
 ) -> Result<App> {
     ensure!(
         entry.type_() == Some("Application") && !entry.hidden(),
@@ -212,7 +213,7 @@ fn from_entry(
             return path.is_file().then_some(path);
         }
 
-        freedesktop_icons::lookup(icon).with_size(ICON_SIZE).find()
+        icons::lookup(icon, ICON_SIZE, icon_theme)
     });
 
     Ok(App {

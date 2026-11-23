@@ -9,6 +9,7 @@ use std::{
 
 use anyhow::{Context, Result, anyhow, ensure};
 use clap::Parser;
+use rust_i18n::t;
 use serde::Deserialize;
 use url::Url;
 use zenzai_core::{
@@ -23,6 +24,8 @@ mod apps;
 mod email;
 mod mimeapps;
 mod ui;
+
+rust_i18n::i18n!("../../locales", fallback = "en");
 
 const STATE_FILE: &str = "app-select.toml";
 const APP_DIRECTORY: &str = "xdg-desktop-portal-zenzai";
@@ -45,6 +48,8 @@ struct Cli {
 
 #[derive(Default, Deserialize)]
 struct Config {
+    #[serde(rename = "icon-theme")]
+    icon_theme: Option<String>,
     terminal: Option<TerminalName>,
     #[serde(default)]
     appchooser: AppChooserConfig,
@@ -53,6 +58,8 @@ struct Config {
 // IPC exit codes are fixed constants in the u8 range.
 #[allow(clippy::cast_possible_truncation)]
 fn main() -> ExitCode {
+    zenzai_core::i18n::init();
+
     tracing_subscriber::fmt()
         .with_writer(io::stderr)
         .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
@@ -63,7 +70,7 @@ fn main() -> ExitCode {
         Ok(false) => ExitCode::from(EXIT_CANCELLED as u8),
         Err(err) => {
             eprintln!("zenzai-app-select: {err:#}");
-            zenzai_core::show_error("Could not open application", &err);
+            zenzai_core::show_error(&t!("app-select.could-not-open-application"), &err);
             ExitCode::from(EXIT_ERROR as u8)
         }
     }
@@ -121,7 +128,7 @@ fn run(cli: Cli) -> Result<bool> {
         return Ok(true);
     }
 
-    let mut apps = apps::discover(&request.uri);
+    let mut apps = apps::discover(&request.uri, config.icon_theme.as_deref());
 
     if !cli.force {
         if let Some(DefaultMapping::One(target)) = mapping {
@@ -192,7 +199,7 @@ fn run(cli: Cli) -> Result<bool> {
     };
 
     let title = if request.email.is_some() {
-        "Choose an email application".to_string()
+        t!("app-select.choose-an-email-application").into_owned()
     } else {
         local
             .as_ref()

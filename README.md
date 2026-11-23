@@ -4,6 +4,7 @@ A collection of several xdg-desktop-portal implementations to serve more lightwe
 
 ## Supported Portals
 
+- [Access](https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.impl.portal.Access.html) - approve or deny access requests
 - [App Chooser](https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.impl.portal.AppChooser.html) - choose an application
 - [Dynamic Launcher](https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.impl.portal.DynamicLauncher.html) - approve launcher creation
 - [Email](https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.impl.portal.Email.html) - compose email using the application chooser
@@ -16,8 +17,9 @@ A collection of several xdg-desktop-portal implementations to serve more lightwe
 Tools integrated with the portal
 
 - `zenzai-app-select` - Custom app chooser dialog
-- `zenzai-dialog-print` - Custom print dialog
+- `zenzai-dialog-access` - Access confirmation dialog
 - `zenzai-dialog-launcher` - Custom launcher approval dialog
+- `zenzai-dialog-print` - Custom print dialog
 
 ## Install
 
@@ -64,6 +66,12 @@ Edit `$XDG_CONFIG_HOME/xdg-desktop-portal-zenzai/config.toml`
 ```toml
 # define your terminal here, this will be used by some services (AppChooser only right now)
 terminal = "ghostty"
+icon-theme = "Papirus"
+
+### Access Portal Config (opt-in)
+[access]
+enabled = true
+command = "zenzai-dialog-access" # executable override, looked up on PATH by default
 
 ### App Chooser Portal Config
 [appchooser]
@@ -124,6 +132,7 @@ To use zenzai you need to create `~/.config/xdg-desktop-portal/CURRENT_DESKTOP_N
 ```
 [preferred]
 default=hyprland;zenzai;gtk
+org.freedesktop.impl.portal.Access=zenzai
 org.freedesktop.impl.portal.AppChooser=zenzai
 org.freedesktop.impl.portal.DynamicLauncher=zenzai
 org.freedesktop.impl.portal.Email=zenzai

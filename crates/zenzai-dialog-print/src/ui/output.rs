@@ -1,3 +1,5 @@
+use rust_i18n::t;
+
 use std::path::{Path, PathBuf};
 
 use ashpd::{
@@ -12,15 +14,13 @@ use dirs::home_dir;
 use url::Url;
 
 const HOME_PREFIX: &str = "~";
-const PDF_FILTER_NAME: &str = "PDF documents";
 const PDF_MIME_TYPE: &str = "application/pdf";
-const PICKER_TITLE: &str = "Save as PDF";
 
 pub async fn pick(current: PathBuf) -> Result<Option<PathBuf>, String> {
     let request = SelectedFiles::save_file()
-        .title(PICKER_TITLE)
+        .title(t!("print.save-as-pdf").as_ref())
         .modal(true)
-        .filter(FileFilter::new(PDF_FILTER_NAME).mimetype(PDF_MIME_TYPE))
+        .filter(FileFilter::new(&t!("print.pdf-documents")).mimetype(PDF_MIME_TYPE))
         .current_name(current.file_name().and_then(|name| name.to_str()))
         .current_folder::<&Path>(current.parent())
         .map_err(|err| err.to_string())?;
@@ -28,7 +28,9 @@ pub async fn pick(current: PathBuf) -> Result<Option<PathBuf>, String> {
     let selected = match request.send().await.and_then(|request| request.response()) {
         Ok(selected) => selected,
         Err(Error::Response(ResponseError::Cancelled)) => return Ok(None),
-        Err(err) => return Err(format!("could not open file chooser: {err}")),
+        Err(err) => {
+            return Err(format!("Could not open file chooser: {err}"));
+        }
     };
 
     let Some(uri) = selected.uris().first() else {
@@ -39,7 +41,7 @@ pub async fn pick(current: PathBuf) -> Result<Option<PathBuf>, String> {
         .ok()
         .and_then(|url| url.to_file_path().ok())
         .map(Some)
-        .ok_or_else(|| format!("not a local file: {uri}"))
+        .ok_or_else(|| format!("Not a local file: {uri}"))
 }
 
 pub fn display(path: &Path) -> String {

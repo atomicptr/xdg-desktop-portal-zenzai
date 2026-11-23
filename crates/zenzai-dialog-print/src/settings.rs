@@ -1,3 +1,5 @@
+use rust_i18n::t;
+
 use std::{fmt, path::Path};
 
 use clap::ValueEnum;
@@ -71,98 +73,318 @@ pub const MAX_SCALE: u32 = 400;
 pub const MAX_COPIES: u32 = 999;
 pub const NUMBER_UP_CHOICES: [u32; 6] = [1, 2, 4, 6, 9, 16];
 
-// each option: variant => portal value, IPP value, label; extra portal spellings are accepted
-macro_rules! options {
-    ($(#[$attr:meta])* $name:ident {
-        $($(#[$vattr:meta])* $variant:ident => $portal:literal $(| $alias:literal)*, $ipp:literal, $label:literal;)+
-    }) => {
-        $(#[$attr])*
-        #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-        pub enum $name {
-            $($(#[$vattr])* $variant,)+
-        }
-
-        #[allow(dead_code)]
-        impl $name {
-            pub const ALL: &[Self] = &[$(Self::$variant),+];
-
-            fn portal(self) -> &'static str {
-                match self { $(Self::$variant => $portal,)+ }
-            }
-
-            fn from_portal(value: &str) -> Option<Self> {
-                match value { $($portal $(| $alias)* => Some(Self::$variant),)+ _ => None }
-            }
-
-            fn ipp(self) -> &'static str {
-                match self { $(Self::$variant => $ipp,)+ }
-            }
-        }
-
-        impl fmt::Display for $name {
-            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                f.write_str(match self { $(Self::$variant => $label,)+ })
-            }
-        }
-    };
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, ValueEnum)]
+pub enum Orientation {
+    #[default]
+    Portrait,
+    Landscape,
 }
 
-options!(
-    #[derive(ValueEnum)]
-    Orientation {
-        #[default]
-        Portrait => "portrait" | "reverse_portrait" | "reverse-portrait", "3", "Portrait";
-        Landscape => "landscape" | "reverse_landscape" | "reverse-landscape", "4", "Landscape";
+impl Orientation {
+    pub const ALL: &[Self] = &[Self::Portrait, Self::Landscape];
+
+    fn portal(self) -> &'static str {
+        match self {
+            Self::Portrait => "portrait",
+            Self::Landscape => "landscape",
+        }
     }
-);
+
+    fn from_portal(value: &str) -> Option<Self> {
+        match value {
+            "portrait" | "reverse_portrait" | "reverse-portrait" => Some(Self::Portrait),
+            "landscape" | "reverse_landscape" | "reverse-landscape" => Some(Self::Landscape),
+            _ => None,
+        }
+    }
+
+    fn ipp(self) -> &'static str {
+        match self {
+            Self::Portrait => "3",
+            Self::Landscape => "4",
+        }
+    }
+}
+
+impl fmt::Display for Orientation {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&match self {
+            Self::Portrait => t!("print.orientation.portrait"),
+            Self::Landscape => t!("print.orientation.landscape"),
+        })
+    }
+}
 
 // matches GTK: "horizontal" is long edge (DuplexNoTumble), "vertical" short edge (DuplexTumble)
-options!(
-    #[derive(ValueEnum)]
-    Duplex {
-        #[default]
-        Off => "simplex", "one-sided", "Off";
-        LongEdge => "horizontal", "two-sided-long-edge", "Long edge";
-        ShortEdge => "vertical", "two-sided-short-edge", "Short edge";
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, ValueEnum)]
+pub enum Duplex {
+    #[default]
+    Off,
+    LongEdge,
+    ShortEdge,
+}
+
+impl Duplex {
+    pub const ALL: &[Self] = &[Self::Off, Self::LongEdge, Self::ShortEdge];
+
+    fn portal(self) -> &'static str {
+        match self {
+            Self::Off => "simplex",
+            Self::LongEdge => "horizontal",
+            Self::ShortEdge => "vertical",
+        }
     }
-);
+
+    fn from_portal(value: &str) -> Option<Self> {
+        match value {
+            "simplex" => Some(Self::Off),
+            "horizontal" => Some(Self::LongEdge),
+            "vertical" => Some(Self::ShortEdge),
+            _ => None,
+        }
+    }
+
+    fn ipp(self) -> &'static str {
+        match self {
+            Self::Off => "one-sided",
+            Self::LongEdge => "two-sided-long-edge",
+            Self::ShortEdge => "two-sided-short-edge",
+        }
+    }
+}
+
+impl fmt::Display for Duplex {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&match self {
+            Self::Off => t!("print.duplex.off"),
+            Self::LongEdge => t!("print.duplex.long-edge"),
+            Self::ShortEdge => t!("print.duplex.short-edge"),
+        })
+    }
+}
 
 // the portal has no value for automatic color, it is left out of the settings
-options!(
-    #[derive(ValueEnum)]
-    ColorMode {
-        #[default]
-        Auto => "", "auto", "Automatic";
-        Color => "true", "color", "Color";
-        Mono => "false", "monochrome", "Grayscale";
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, ValueEnum)]
+pub enum ColorMode {
+    #[default]
+    Auto,
+    Color,
+    Mono,
+}
+
+impl ColorMode {
+    pub const ALL: &[Self] = &[Self::Auto, Self::Color, Self::Mono];
+
+    fn portal(self) -> &'static str {
+        match self {
+            Self::Auto => "",
+            Self::Color => "true",
+            Self::Mono => "false",
+        }
     }
-);
 
-options!(Quality {
-    Draft => "draft" | "low", "3", "Draft";
-    #[default]
-    Normal => "normal", "4", "Normal";
-    High => "high", "5", "High";
-});
+    fn from_portal(value: &str) -> Option<Self> {
+        match value {
+            "" => Some(Self::Auto),
+            "true" => Some(Self::Color),
+            "false" => Some(Self::Mono),
+            _ => None,
+        }
+    }
 
-options!(PageSet {
-    #[default]
-    All => "all", "", "All pages";
-    Odd => "odd", "odd", "Odd pages";
-    Even => "even", "even", "Even pages";
-});
+    fn ipp(self) -> &'static str {
+        match self {
+            Self::Auto => "auto",
+            Self::Color => "color",
+            Self::Mono => "monochrome",
+        }
+    }
+}
 
-options!(NumberUpLayout {
+impl fmt::Display for ColorMode {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&match self {
+            Self::Auto => t!("print.color-mode.automatic"),
+            Self::Color => t!("print.color"),
+            Self::Mono => t!("print.color-mode.grayscale"),
+        })
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Quality {
+    Draft,
     #[default]
-    Lrtb => "lrtb", "lrtb", "Left to right, top to bottom";
-    Lrbt => "lrbt", "lrbt", "Left to right, bottom to top";
-    Rltb => "rltb", "rltb", "Right to left, top to bottom";
-    Rlbt => "rlbt", "rlbt", "Right to left, bottom to top";
-    Tblr => "tblr", "tblr", "Top to bottom, left to right";
-    Tbrl => "tbrl", "tbrl", "Top to bottom, right to left";
-    Btlr => "btlr", "btlr", "Bottom to top, left to right";
-    Btrl => "btrl", "btrl", "Bottom to top, right to left";
-});
+    Normal,
+    High,
+}
+
+impl Quality {
+    pub const ALL: &[Self] = &[Self::Draft, Self::Normal, Self::High];
+
+    fn portal(self) -> &'static str {
+        match self {
+            Self::Draft => "draft",
+            Self::Normal => "normal",
+            Self::High => "high",
+        }
+    }
+
+    fn from_portal(value: &str) -> Option<Self> {
+        match value {
+            "draft" | "low" => Some(Self::Draft),
+            "normal" => Some(Self::Normal),
+            "high" => Some(Self::High),
+            _ => None,
+        }
+    }
+
+    fn ipp(self) -> &'static str {
+        match self {
+            Self::Draft => "3",
+            Self::Normal => "4",
+            Self::High => "5",
+        }
+    }
+}
+
+impl fmt::Display for Quality {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&match self {
+            Self::Draft => t!("print.quality.draft"),
+            Self::Normal => t!("print.quality.normal"),
+            Self::High => t!("print.quality.high"),
+        })
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum PageSet {
+    #[default]
+    All,
+    Odd,
+    Even,
+}
+
+impl PageSet {
+    pub const ALL: &[Self] = &[Self::All, Self::Odd, Self::Even];
+
+    fn portal(self) -> &'static str {
+        match self {
+            Self::All => "all",
+            Self::Odd => "odd",
+            Self::Even => "even",
+        }
+    }
+
+    fn from_portal(value: &str) -> Option<Self> {
+        match value {
+            "all" => Some(Self::All),
+            "odd" => Some(Self::Odd),
+            "even" => Some(Self::Even),
+            _ => None,
+        }
+    }
+
+    fn ipp(self) -> &'static str {
+        match self {
+            Self::All => "",
+            Self::Odd => "odd",
+            Self::Even => "even",
+        }
+    }
+}
+
+impl fmt::Display for PageSet {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&match self {
+            Self::All => t!("print.page-set.all-pages"),
+            Self::Odd => t!("print.page-set.odd-pages"),
+            Self::Even => t!("print.page-set.even-pages"),
+        })
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum NumberUpLayout {
+    #[default]
+    Lrtb,
+    Lrbt,
+    Rltb,
+    Rlbt,
+    Tblr,
+    Tbrl,
+    Btlr,
+    Btrl,
+}
+
+impl NumberUpLayout {
+    pub const ALL: &[Self] = &[
+        Self::Lrtb,
+        Self::Lrbt,
+        Self::Rltb,
+        Self::Rlbt,
+        Self::Tblr,
+        Self::Tbrl,
+        Self::Btlr,
+        Self::Btrl,
+    ];
+
+    fn portal(self) -> &'static str {
+        match self {
+            Self::Lrtb => "lrtb",
+            Self::Lrbt => "lrbt",
+            Self::Rltb => "rltb",
+            Self::Rlbt => "rlbt",
+            Self::Tblr => "tblr",
+            Self::Tbrl => "tbrl",
+            Self::Btlr => "btlr",
+            Self::Btrl => "btrl",
+        }
+    }
+
+    fn from_portal(value: &str) -> Option<Self> {
+        match value {
+            "lrtb" => Some(Self::Lrtb),
+            "lrbt" => Some(Self::Lrbt),
+            "rltb" => Some(Self::Rltb),
+            "rlbt" => Some(Self::Rlbt),
+            "tblr" => Some(Self::Tblr),
+            "tbrl" => Some(Self::Tbrl),
+            "btlr" => Some(Self::Btlr),
+            "btrl" => Some(Self::Btrl),
+            _ => None,
+        }
+    }
+
+    fn ipp(self) -> &'static str {
+        match self {
+            Self::Lrtb => "lrtb",
+            Self::Lrbt => "lrbt",
+            Self::Rltb => "rltb",
+            Self::Rlbt => "rlbt",
+            Self::Tblr => "tblr",
+            Self::Tbrl => "tbrl",
+            Self::Btlr => "btlr",
+            Self::Btrl => "btrl",
+        }
+    }
+}
+
+impl fmt::Display for NumberUpLayout {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&match self {
+            Self::Lrtb => t!("print.page-order.left-to-right-top-to-bottom"),
+            Self::Lrbt => t!("print.page-order.left-to-right-bottom-to-top"),
+            Self::Rltb => t!("print.page-order.right-to-left-top-to-bottom"),
+            Self::Rlbt => t!("print.page-order.right-to-left-bottom-to-top"),
+            Self::Tblr => t!("print.page-order.top-to-bottom-left-to-right"),
+            Self::Tbrl => t!("print.page-order.top-to-bottom-right-to-left"),
+            Self::Btlr => t!("print.page-order.bottom-to-top-left-to-right"),
+            Self::Btrl => t!("print.page-order.bottom-to-top-right-to-left"),
+        })
+    }
+}
 
 impl NumberUpLayout {
     // horizontal direction, vertical direction and whether rows are filled before columns
@@ -180,13 +402,48 @@ impl NumberUpLayout {
     }
 }
 
-options!(PageSelection {
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum PageSelection {
     #[default]
-    All => "all", "", "All";
-    Current => "current", "", "Current page";
-    Selection => "selection", "", "Selection";
-    Ranges => "ranges", "", "Range";
-});
+    All,
+    Current,
+    Selection,
+    Ranges,
+}
+
+impl PageSelection {
+    pub const ALL: &[Self] = &[Self::All, Self::Current, Self::Selection, Self::Ranges];
+
+    fn portal(self) -> &'static str {
+        match self {
+            Self::All => "all",
+            Self::Current => "current",
+            Self::Selection => "selection",
+            Self::Ranges => "ranges",
+        }
+    }
+
+    fn from_portal(value: &str) -> Option<Self> {
+        match value {
+            "all" => Some(Self::All),
+            "current" => Some(Self::Current),
+            "selection" => Some(Self::Selection),
+            "ranges" => Some(Self::Ranges),
+            _ => None,
+        }
+    }
+}
+
+impl fmt::Display for PageSelection {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&match self {
+            Self::All => t!("print.page-selection.all"),
+            Self::Current => t!("print.page-selection.current-page"),
+            Self::Selection => t!("print.page-selection.selection"),
+            Self::Ranges => t!("print.page-selection.range"),
+        })
+    }
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PageRange {
@@ -397,7 +654,6 @@ impl JobSettings {
         let mut set = |key: &str, value: String| {
             settings.insert(key.to_string(), value);
         };
-
         if let Some(paper) = &self.paper {
             set(key::PAPER_FORMAT, paper.name.clone());
             set(key::PAPER_WIDTH, paper.width_mm.to_string());

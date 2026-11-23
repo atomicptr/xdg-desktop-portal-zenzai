@@ -12,9 +12,9 @@ anyhow.workspace = true
 clap = { version = "4.6.9", features = ["derive"] }
 dirs.workspace = true
 freedesktop-desktop-entry = { version = "0.8.4", default-features = false }
-freedesktop-icons = "0.4.0"
 iced = { workspace = true, features = ["svg"] }
 image = { version = "0.25.10", default-features = false, features = ["png"] }
+rust-i18n.workspace = true
 rust-ini = "0.21.3"
 rustix = { version = "1.1.6", features = ["fs"] }
 serde.workspace = true

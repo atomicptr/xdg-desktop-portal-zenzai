@@ -22,6 +22,7 @@ rustPlatform.buildRustPackage {
       ../Cargo.lock
       ../crates
       ../share
+      ../locales
     ];
   };
 
@@ -54,7 +55,7 @@ rustPlatform.buildRustPackage {
 
   # winit loads these at runtime via dlopen
   postFixup = ''
-    for executable in zenzai-dialog-print zenzai-app-select zenzai-dialog-launcher; do
+    for executable in zenzai-dialog-print zenzai-app-select zenzai-dialog-launcher zenzai-dialog-access; do
       patchelf --add-rpath ${
         lib.makeLibraryPath [
           libxkbcommon

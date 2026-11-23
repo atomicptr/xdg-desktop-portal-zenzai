@@ -2,6 +2,7 @@
 cfg:
 let
   inherit (cfg.portals)
+    access
     settings
     appchooser
     dynamicLauncher
@@ -11,6 +12,13 @@ let
 in
 lib.filterAttrsRecursive (_: value: value != null) {
   inherit (cfg) terminal;
+  icon-theme = cfg.iconTheme;
+
+  access = {
+    enabled = access.enable;
+    command =
+      if access.command != null then access.command else lib.getExe' cfg.package "zenzai-dialog-access";
+  };
 
   settings = {
     enabled = settings.enable;

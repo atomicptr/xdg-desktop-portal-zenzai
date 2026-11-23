@@ -9,6 +9,7 @@ use iced::{
     },
     window,
 };
+use rust_i18n::t;
 use zenzai_core::{
     appearance::UiConfig,
     config,
@@ -297,14 +298,14 @@ fn view(state: &State) -> Element<'_, Message> {
 
     if state.search_shown() {
         content = content.push(
-            text_input("Search applications…", &state.query)
+            text_input(&t!("app-select.search-applications"), &state.query)
                 .id(SEARCH_ID)
                 .on_input(Message::Search),
         );
     }
 
     let list: Element<'_, Message> = if state.visible.is_empty() {
-        container(text("No applications found").style(text::secondary))
+        container(text(t!("app-select.no-applications-found")).style(text::secondary))
             .center(Fill)
             .into()
     } else {
@@ -320,18 +321,18 @@ fn view(state: &State) -> Element<'_, Message> {
         .push(list)
         .push(
             checkbox(state.show_all)
-                .label("Show all applications")
+                .label(t!("app-select.show-all-applications"))
                 .on_toggle(Message::ShowAll),
         )
         .push(
             checkbox(state.remember)
-                .label("Set as default")
+                .label(t!("app-select.set-as-default"))
                 .on_toggle_maybe(state.can_remember().then_some(Message::Remember)),
         );
 
     if state.configured {
         content = content.push(
-            text("Configured defaults take priority.")
+            text(t!("app-select.configured-defaults-take-priority"))
                 .size(12)
                 .style(text::secondary),
         );
@@ -342,9 +343,9 @@ fn view(state: &State) -> Element<'_, Message> {
         rule::horizontal(1),
         widgets::action_bar(
             None,
-            "Cancel",
+            t!("common.cancel"),
             Message::Cancel,
-            "Open",
+            t!("common.open"),
             state.selected.map(|_| Message::Accept),
         ),
     ]

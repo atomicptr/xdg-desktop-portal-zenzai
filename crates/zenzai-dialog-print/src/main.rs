@@ -1,3 +1,5 @@
+use rust_i18n::t;
+
 use std::{
     fs,
     io::{self, Write},
@@ -31,14 +33,17 @@ mod remember;
 mod settings;
 mod ui;
 
+rust_i18n::i18n!("../../locales", fallback = "en");
+
 const PDF_MAGIC: &[u8] = b"%PDF";
 const PDF_EXTENSION: &str = "pdf";
 const STDIN_PATH: &str = "-";
-const DEFAULT_TITLE: &str = "Print Document";
 
 // IPC exit codes are fixed constants in the u8 range.
 #[allow(clippy::cast_possible_truncation)]
 fn main() -> ExitCode {
+    zenzai_core::i18n::init();
+
     // stdout is reserved for results, log to stderr
     tracing_subscriber::fmt()
         .with_writer(io::stderr)
@@ -58,7 +63,7 @@ fn main() -> ExitCode {
         Ok(false) => ExitCode::from(EXIT_CANCELLED as u8),
         Err(err) => {
             eprintln!("zenzai-dialog-print: {err:#}");
-            zenzai_core::show_error("Printing failed", &err);
+            zenzai_core::show_error(&t!("print.printing-failed"), &err);
             ExitCode::from(EXIT_ERROR as u8)
         }
     }
@@ -80,7 +85,7 @@ fn run_cli(cli: Cli) -> Result<bool> {
     });
 
     let request = PrintRequest {
-        title: title.unwrap_or_else(|| DEFAULT_TITLE.to_string()),
+        title: title.unwrap_or_else(|| t!("print.print-document").into_owned()),
         document: Some(
             stdin_copy
                 .as_ref()
@@ -199,7 +204,7 @@ fn dialog(request: &PrintRequest) -> Result<Dialog> {
         .is_none_or(|formats| formats.iter().any(|f| f.eq_ignore_ascii_case(PDF_FORMAT)));
 
     let title = if request.title.is_empty() {
-        DEFAULT_TITLE.to_string()
+        t!("print.print-document").into_owned()
     } else {
         request.title.clone()
     };
@@ -309,7 +314,11 @@ fn save_pdf(document: &Path, output: &Path) -> Result<()> {
 fn default_output(title: &str) -> PathBuf {
     let name = title.replace('/', "_");
     let name = name.trim_matches('.');
-    let name = if name.is_empty() { DEFAULT_TITLE } else { name };
+    let name = if name.is_empty() {
+        t!("print.print-document")
+    } else {
+        name.into()
+    };
 
     dirs::document_dir()
         .or_else(dirs::home_dir)

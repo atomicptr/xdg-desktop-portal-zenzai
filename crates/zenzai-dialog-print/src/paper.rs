@@ -1,27 +1,45 @@
 use std::fmt;
 
+use rust_i18n::t;
+
 const MM_PER_INCH: f64 = 25.4;
 const SIZE_TOLERANCE_MM: f64 = 1.0;
 
-// PWG name, the name GTK shows and a short alias for the command line,
-// also offered when a printer reports no media
+// PWG name, translation key, and command-line alias;
+// also offered when a printer reports no media.
 const KNOWN: [(&str, &str, &str); 16] = [
-    ("iso_a3_297x420mm", "A3", "a3"),
-    ("iso_a4_210x297mm", "A4", "a4"),
-    ("iso_a5_148x210mm", "A5", "a5"),
-    ("iso_a6_105x148mm", "A6", "a6"),
-    ("iso_b4_250x353mm", "B4", "b4"),
-    ("iso_b5_176x250mm", "B5", "b5"),
-    ("jis_b5_182x257mm", "JIS B5", "jis-b5"),
-    ("na_letter_8.5x11in", "US Letter", "letter"),
-    ("na_legal_8.5x14in", "US Legal", "legal"),
-    ("na_ledger_11x17in", "Tabloid", "tabloid"),
-    ("na_executive_7.25x10.5in", "Executive", "executive"),
-    ("na_invoice_5.5x8.5in", "Statement", "statement"),
-    ("iso_c5_162x229mm", "C5 Envelope", "c5"),
-    ("iso_dl_110x220mm", "DL Envelope", "dl"),
-    ("na_number-10_4.125x9.5in", "#10 Envelope", "envelope-10"),
-    ("na_index-4x6_4x6in", "Index 4×6", "4x6"),
+    ("iso_a3_297x420mm", "print.paper-format.a3", "a3"),
+    ("iso_a4_210x297mm", "print.paper-format.a4", "a4"),
+    ("iso_a5_148x210mm", "print.paper-format.a5", "a5"),
+    ("iso_a6_105x148mm", "print.paper-format.a6", "a6"),
+    ("iso_b4_250x353mm", "print.paper-format.b4", "b4"),
+    ("iso_b5_176x250mm", "print.paper-format.b5", "b5"),
+    ("jis_b5_182x257mm", "print.paper-format.jis-b5", "jis-b5"),
+    (
+        "na_letter_8.5x11in",
+        "print.paper-format.us-letter",
+        "letter",
+    ),
+    ("na_legal_8.5x14in", "print.paper-format.us-legal", "legal"),
+    ("na_ledger_11x17in", "print.paper-format.tabloid", "tabloid"),
+    (
+        "na_executive_7.25x10.5in",
+        "print.paper-format.executive",
+        "executive",
+    ),
+    (
+        "na_invoice_5.5x8.5in",
+        "print.paper-format.statement",
+        "statement",
+    ),
+    ("iso_c5_162x229mm", "print.paper-format.c5-envelope", "c5"),
+    ("iso_dl_110x220mm", "print.paper-format.dl-envelope", "dl"),
+    (
+        "na_number-10_4.125x9.5in",
+        "print.paper-format.10-envelope",
+        "envelope-10",
+    ),
+    ("na_index-4x6_4x6in", "print.paper-format.index-4-6", "4x6"),
 ];
 
 #[derive(Debug, Clone, PartialEq)]
@@ -37,7 +55,7 @@ impl Paper {
         let (width_mm, height_mm) = pwg_size(name)?;
 
         Some(Self {
-            display: display_name(name, (width_mm, height_mm)),
+            display: display_name(name, (width_mm, height_mm), "en"),
             name: name.to_string(),
             width_mm,
             height_mm,
@@ -103,7 +121,7 @@ fn sizes_match(a: (f64, f64), b: (f64, f64)) -> bool {
     (a.0 - b.0).abs() < SIZE_TOLERANCE_MM && (a.1 - b.1).abs() < SIZE_TOLERANCE_MM
 }
 
-fn display_name(name: &str, size: (f64, f64)) -> String {
+fn display_name(name: &str, size: (f64, f64), locale: &str) -> String {
     let short = name.split('_').nth(1).unwrap_or(name);
 
     let known = KNOWN
@@ -112,12 +130,29 @@ fn display_name(name: &str, size: (f64, f64)) -> String {
 
     // unknown sizes keep their dimensions visible, the name alone is often meaningless
     let Some((known, display, _)) = known else {
-        return format!(
-            "{} ({:.0} × {:.0} mm)",
-            capitalize(&short.replace('-', " ")),
-            size.0,
-            size.1
-        );
+        let name = capitalize(&short.replace('-', " "));
+        let width = format!("{:.0}", size.0);
+        let height = format!("{:.0}", size.1);
+
+        return t!(
+            "print.paper-format.dimensions",
+            locale = locale,
+            name = name,
+            width = width,
+            height = height
+        )
+        .into_owned();
+    };
+
+    let display = t!(*display, locale = locale);
+    let variant_label = |variant: &str| {
+        t!(
+            "print.paper-format.variant",
+            locale = locale,
+            paper = display,
+            variant = variant.replace('-', " ")
+        )
+        .into_owned()
     };
 
     // keep variants apart, a printer may list "A4" and "A4 borderless" side by side
@@ -128,8 +163,8 @@ fn display_name(name: &str, size: (f64, f64)) -> String {
         .map(|rest| rest.trim_matches('-'))
     {
         Some("") => display.to_string(),
-        Some(variant) => format!("{display} ({})", variant.replace('-', " ")),
-        None => format!("{display} ({})", short.replace('-', " ")),
+        Some(variant) => variant_label(variant),
+        None => variant_label(short),
     }
 }
 
@@ -144,7 +179,11 @@ fn capitalize(value: &str) -> String {
 
 impl fmt::Display for Paper {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(&self.display)
+        f.write_str(&display_name(
+            &self.name,
+            (self.width_mm, self.height_mm),
+            &rust_i18n::locale(),
+        ))
     }
 }
 

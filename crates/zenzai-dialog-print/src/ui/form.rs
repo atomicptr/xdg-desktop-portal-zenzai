@@ -1,3 +1,5 @@
+use rust_i18n::t;
+
 use iced::{
     Alignment, ContentFit, Element, Fill, Length,
     widget::{Column, button, checkbox, column, container, image, row, rule, text, text_input},
@@ -26,37 +28,11 @@ const PAGES_PICKER_WIDTH: f32 = 110.0;
 const PAGES_SPACING: f32 = 8.0;
 const TITLE_SIZE: u32 = 20;
 const PREVIEW_PADDING: u16 = 12;
-const RANGES_PLACEHOLDER: &str = "e.g. 1-3, 7";
-const MORE_SETTINGS: &str = "More settings";
 const COLLAPSED: &str = "▸";
 const EXPANDED: &str = "▾";
-const LABEL_DESTINATION: &str = "Destination";
-const LABEL_FILE: &str = "File";
-const LABEL_PAGES: &str = "Pages";
-const LABEL_COPIES: &str = "Copies";
-const LABEL_ORIENTATION: &str = "Orientation";
-const LABEL_COLOR: &str = "Color";
-const OUTPUT_PLACEHOLDER: &str = "Output file";
-const CHOOSE_LABEL: &str = "Choose…";
-const LABEL_PAPER_SIZE: &str = "Paper size";
-const LABEL_PAPER_TYPE: &str = "Paper type";
-const LABEL_PAGES_PER_SHEET: &str = "Pages per sheet";
-const LABEL_PAGE_ORDER: &str = "Page order";
-const LABEL_TWO_SIDED: &str = "Two-sided";
-const LABEL_QUALITY: &str = "Quality";
-const LABEL_SCALE: &str = "Scale (%)";
-const LABEL_ONLY_PRINT: &str = "Only print";
-const LABEL_OPTIONS: &str = "Options";
-const LABEL_REVERSE: &str = "Reverse order";
-const LABEL_COLLATE: &str = "Collate copies";
-const RENDERING: &str = "Rendering…";
-const PREVIEW_LABEL: &str = "Preview";
-pub(super) const PREVIEW_UNAVAILABLE: &str = "Preview unavailable";
 const INLINE_PREVIEW_HEIGHT: f32 = 320.0;
 const PREVIOUS: &str = "‹";
 const NEXT: &str = "›";
-const FRONT: &str = "front";
-const BACK: &str = "back";
 
 fn edit(state: &State, f: impl FnOnce(&mut JobSettings)) -> Message {
     let mut settings = state.dialog.settings.clone();
@@ -109,16 +85,17 @@ fn fields(state: &State) -> Column<'_, Message> {
 
     let destination = picker(
         state,
-        LABEL_DESTINATION,
+        "Destination",
         &state.destinations,
         state.selected.as_ref(),
         Message::SelectDestination,
     );
 
-    let mut form = column![header, form_row(LABEL_DESTINATION, destination)].spacing(FORM_SPACING);
+    let mut form =
+        column![header, form_row(t!("print.destination"), destination)].spacing(FORM_SPACING);
 
     if state.is_pdf() {
-        form = form.push(form_row(LABEL_FILE, output(state)));
+        form = form.push(form_row(t!("print.file"), output(state)));
     }
 
     if !state.page_options_apply() {
@@ -130,25 +107,25 @@ fn fields(state: &State) -> Column<'_, Message> {
     });
 
     form = form
-        .push(form_row(LABEL_PAGES, pages(state)))
+        .push(form_row(t!("print.pages"), pages(state)))
         .push(form_row(
-            LABEL_COPIES,
+            t!("print.copies"),
             container(stepper(current.copies, 1, MAX_COPIES, |copies| {
                 edit(state, move |s| s.copies = copies)
             }))
             .width(CONTROL_WIDTH),
         ))
         .push(form_row(
-            LABEL_ORIENTATION,
+            t!("print.orientation"),
             container(orientation).width(CONTROL_WIDTH),
         ));
 
     if caps.is_some_and(|caps| caps.color) {
         form = form.push(form_row(
-            LABEL_COLOR,
+            t!("print.color"),
             picker(
                 state,
-                LABEL_COLOR,
+                "Color",
                 ColorMode::ALL,
                 Some(&current.color),
                 |color| edit(state, move |s| s.color = color),
@@ -173,7 +150,7 @@ fn more_toggle(state: &State) -> Element<'_, Message> {
     };
 
     button(form_row(
-        MORE_SETTINGS,
+        t!("print.more-settings"),
         container(text(arrow)).align_right(CONTROL_WIDTH),
     ))
     .style(button::text)
@@ -185,7 +162,7 @@ fn more_toggle(state: &State) -> Element<'_, Message> {
 fn output(state: &State) -> Element<'_, Message> {
     let display = output::display(&state.dialog.output);
     let path: Element<'_, Message> = if state.manual_output {
-        text_input(OUTPUT_PLACEHOLDER, &display)
+        text_input(&t!("print.output-file"), &display)
             .on_input(Message::OutputTyped)
             .width(Fill)
             .into()
@@ -193,7 +170,7 @@ fn output(state: &State) -> Element<'_, Message> {
         text(display).width(Fill).into()
     };
 
-    let choose = button(text(CHOOSE_LABEL))
+    let choose = button(text(t!("common.choose")))
         .style(button::secondary)
         .on_press_maybe((!state.picking_output).then_some(Message::ChooseOutput));
 
@@ -219,7 +196,7 @@ fn pages(state: &State) -> Element<'_, Message> {
 
     let mut pages = row![
         container(dropdown(
-            LABEL_PAGES,
+            "Pages",
             &choices,
             Some(&current.pages),
             state.menu.as_ref(),
@@ -239,7 +216,7 @@ fn pages(state: &State) -> Element<'_, Message> {
 
     if current.pages == PageSelection::Ranges {
         pages = pages.push(
-            text_input(RANGES_PLACEHOLDER, &current.ranges)
+            text_input(&t!("print.page-range-placeholder"), &current.ranges)
                 .on_input(move |ranges| edit(state, move |s| s.ranges = ranges))
                 .width(Length::Fixed(
                     CONTROL_WIDTH - PAGES_PICKER_WIDTH - PAGES_SPACING,
@@ -255,10 +232,10 @@ fn more_settings(state: &State) -> Element<'_, Message> {
     let caps = state.capabilities.as_ref();
 
     let mut form = column![form_row(
-        LABEL_PAPER_SIZE,
+        t!("print.paper-size"),
         picker(
             state,
-            LABEL_PAPER_SIZE,
+            "Paper size",
             &state.papers(),
             current.paper.as_ref(),
             |paper| { edit(state, move |s| s.paper = Some(paper)) }
@@ -272,10 +249,10 @@ fn more_settings(state: &State) -> Element<'_, Message> {
             .find(|choice| current.media_type.as_ref() == Some(&choice.value));
 
         form = form.push(form_row(
-            LABEL_PAPER_TYPE,
+            t!("print.paper-type"),
             picker(
                 state,
-                LABEL_PAPER_TYPE,
+                "Paper type",
                 media_types,
                 selected,
                 |choice: Choice| edit(state, move |s| s.media_type = Some(choice.value)),
@@ -284,9 +261,9 @@ fn more_settings(state: &State) -> Element<'_, Message> {
     }
 
     form = form.push(form_row(
-        LABEL_PAGES_PER_SHEET,
+        t!("print.pages-per-sheet"),
         container(dropdown(
-            LABEL_PAGES_PER_SHEET,
+            "Pages per sheet",
             &NUMBER_UP_CHOICES,
             Some(&current.number_up),
             state.menu.as_ref(),
@@ -299,10 +276,10 @@ fn more_settings(state: &State) -> Element<'_, Message> {
 
     if current.number_up > 1 {
         form = form.push(form_row(
-            LABEL_PAGE_ORDER,
+            t!("print.page-order"),
             picker(
                 state,
-                LABEL_PAGE_ORDER,
+                "Page order",
                 NumberUpLayout::ALL,
                 Some(&current.number_up_layout),
                 |layout| edit(state, move |s| s.number_up_layout = layout),
@@ -312,10 +289,10 @@ fn more_settings(state: &State) -> Element<'_, Message> {
 
     if caps.is_some_and(|caps| caps.duplex) {
         form = form.push(form_row(
-            LABEL_TWO_SIDED,
+            t!("print.two-sided"),
             picker(
                 state,
-                LABEL_TWO_SIDED,
+                "Two-sided",
                 Duplex::ALL,
                 Some(&current.duplex),
                 |duplex| edit(state, move |s| s.duplex = duplex),
@@ -325,10 +302,10 @@ fn more_settings(state: &State) -> Element<'_, Message> {
 
     if caps.is_some_and(|caps| caps.quality) {
         form = form.push(form_row(
-            LABEL_QUALITY,
+            t!("print.quality"),
             picker(
                 state,
-                LABEL_QUALITY,
+                "Quality",
                 Quality::ALL,
                 Some(&current.quality),
                 |quality| edit(state, move |s| s.quality = quality),
@@ -339,7 +316,7 @@ fn more_settings(state: &State) -> Element<'_, Message> {
     // CUPS can not scale existing documents, only applications rendering for us apply it
     if state.dialog.document.is_none() {
         form = form.push(form_row(
-            LABEL_SCALE,
+            t!("print.scale"),
             container(stepper(current.scale, MIN_SCALE, MAX_SCALE, |scale| {
                 edit(state, move |s| s.scale = scale)
             }))
@@ -348,23 +325,23 @@ fn more_settings(state: &State) -> Element<'_, Message> {
     }
 
     form.push(form_row(
-        LABEL_ONLY_PRINT,
+        t!("print.only-print"),
         picker(
             state,
-            LABEL_ONLY_PRINT,
+            "Only print",
             PageSet::ALL,
             Some(&current.page_set),
             |page_set| edit(state, move |s| s.page_set = page_set),
         ),
     ))
     .push(form_row(
-        LABEL_OPTIONS,
+        t!("print.options"),
         column![
             checkbox(current.reverse)
-                .label(LABEL_REVERSE)
+                .label(t!("print.reverse-order"))
                 .on_toggle(move |reverse| edit(state, move |s| s.reverse = reverse)),
             checkbox(current.collate)
-                .label(LABEL_COLLATE)
+                .label(t!("print.collate-copies"))
                 .on_toggle(move |collate| edit(state, move |s| s.collate = collate)),
         ]
         .spacing(PAGES_SPACING),
@@ -381,14 +358,16 @@ pub fn preview(state: &State) -> Element<'_, Message> {
             .width(Fill)
             .height(Fill)
             .into(),
-        Some(Preview::Rendering) => text(RENDERING).style(text::secondary).into(),
-        Some(Preview::Failed) | None => text(PREVIEW_UNAVAILABLE).style(text::secondary).into(),
+        Some(Preview::Rendering) => text(t!("print.rendering")).style(text::secondary).into(),
+        Some(Preview::Failed) | None => text(t!("print.preview-unavailable"))
+            .style(text::secondary)
+            .into(),
     };
 
     if state.can_preview() {
         sheet = column![
             sheet,
-            button(text(PREVIEW_LABEL))
+            button(text(t!("print.preview")))
                 .style(button::secondary)
                 .on_press_maybe(state.can_accept().then_some(Message::RequestPreview)),
         ]
@@ -426,16 +405,30 @@ pub fn preview(state: &State) -> Element<'_, Message> {
 }
 
 fn side_label(state: &State, side: usize, count: usize) -> String {
-    let position = format!("{} / {count}", (side + 1).min(count));
+    let position = t!(
+        "print.preview.position",
+        current = (side + 1).min(count),
+        count = count
+    );
 
     if !state.page_options_apply() || state.dialog.settings.duplex == Duplex::Off {
-        return position;
+        return position.into_owned();
     }
 
-    let face = match side % 2 {
-        0 => FRONT,
-        _ => BACK,
-    };
+    let sheet = side / 2 + 1;
 
-    format!("{position} · sheet {} {face}", side / 2 + 1)
+    if side.is_multiple_of(2) {
+        t!(
+            "print.preview.sheet-front",
+            position = position,
+            sheet = sheet
+        )
+    } else {
+        t!(
+            "print.preview.sheet-back",
+            position = position,
+            sheet = sheet
+        )
+    }
+    .into_owned()
 }

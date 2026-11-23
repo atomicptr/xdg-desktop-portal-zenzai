@@ -5,13 +5,14 @@ use zenzai_core::{
 };
 
 use crate::portals::{
-    dynamic_launcher::DynamicLauncherConfig, email::EmailConfig,
+    access::AccessConfig, dynamic_launcher::DynamicLauncherConfig, email::EmailConfig,
     notification::config::NotificationConfig, print::config::PrintConfig,
     settings::config::SettingsConfig,
 };
 
 #[derive(Debug, Default, Deserialize)]
 pub struct Config {
+    pub access: Option<AccessConfig>,
     pub terminal: Option<TerminalName>,
     pub settings: Option<SettingsConfig>,
     pub appchooser: Option<AppChooserConfig>,
@@ -20,6 +21,8 @@ pub struct Config {
     pub email: Option<EmailConfig>,
     pub print: Option<PrintConfig>,
     pub notification: Option<NotificationConfig>,
+    #[serde(rename = "icon-theme")]
+    _icon_theme: Option<String>,
     // Validate the shared GUI schema even though the daemon does not use it.
     #[serde(rename = "theme")]
     _theme: Option<ThemeConfig>,
@@ -41,6 +44,10 @@ mod tests {
         let config: Config = toml::from_str(FULL_CONFIG).unwrap();
 
         assert_eq!(config.terminal.unwrap().as_str(), "wezterm");
+
+        let access = config.access.unwrap();
+        assert!(access.enabled);
+        assert_eq!(access.command.as_deref(), Some("zenzai-dialog-access"));
 
         let settings = config.settings.unwrap();
         assert!(settings.enabled);
@@ -73,6 +80,7 @@ mod tests {
         assert!(config.notification.unwrap().enabled);
 
         let ui: UiConfig = toml::from_str(FULL_CONFIG).unwrap();
+        assert_eq!(ui.icon_theme.as_deref(), Some("Papirus"));
         let palette = &ui.theme.palette;
         assert!(ui.theme.name.is_some() && ui.theme.font.is_some() && ui.theme.text_size.is_some());
         assert!(

@@ -2,6 +2,7 @@ use anyhow::Result;
 use config::Config;
 use constants::{APP_VERSION, DBUS_NAME, DBUS_PATH};
 use portals::{
+    access::{AccessService, DIALOG_COMMAND as ACCESS_DIALOG_COMMAND},
     appchooser::service::{AppChooserService, SELECT_COMMAND},
     dynamic_launcher::{DIALOG_COMMAND as LAUNCHER_DIALOG_COMMAND, DynamicLauncherService},
     email::EmailService,
@@ -41,6 +42,7 @@ async fn main() -> Result<()> {
     let config: Config = load_or_default()?;
     let mut reload = Reload {
         enabled: EnabledPortals::from(&config),
+        access: None,
         appchooser: None,
         dynamic_launcher: None,
         email: None,
@@ -61,6 +63,22 @@ async fn main() -> Result<()> {
 
         tracing::info!("portal: org.freedesktop.portal.Settings enabled!");
         conn = conn.serve_at(DBUS_PATH, SettingsService::new(config));
+    }
+
+    if let Some(config) = config.access
+        && config.enabled
+    {
+        let command = config.command.as_deref().unwrap_or(ACCESS_DIALOG_COMMAND);
+        match resolve_command(command) {
+            Ok(command) => {
+                any_enabled = true;
+                tracing::info!("portal: org.freedesktop.portal.Access enabled!");
+                let (sender, command) = watch::channel(command);
+                reload.access = Some(sender);
+                conn = conn.serve_at(DBUS_PATH, AccessService { command });
+            }
+            Err(err) => tracing::error!("Access disabled, could not find {command:?}: {err}"),
+        }
     }
 
     if let Some(config) = config.appchooser

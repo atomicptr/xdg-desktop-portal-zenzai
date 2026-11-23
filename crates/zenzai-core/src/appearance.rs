@@ -40,6 +40,8 @@ impl AccentColor {
 
 #[derive(Debug, Default, Deserialize)]
 pub struct UiConfig {
+    #[serde(rename = "icon-theme")]
+    pub icon_theme: Option<String>,
     #[serde(default)]
     pub theme: ThemeConfig,
     #[serde(default)]

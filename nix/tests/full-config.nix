@@ -1,6 +1,12 @@
 {
   enable = true;
   terminal = "wezterm";
+  iconTheme = "Papirus";
+
+  portals.access = {
+    enable = true;
+    command = "zenzai-dialog-access";
+  };
 
   portals.settings = {
     enable = true;

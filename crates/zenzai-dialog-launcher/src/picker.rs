@@ -8,6 +8,7 @@ use ashpd::{
         file_chooser::{FileFilter, SelectedFiles},
     },
 };
+use rust_i18n::t;
 use url::Url;
 use zenzai_core::ipc::MAX_LAUNCHER_ICON_BYTES as MAX_ICON_BYTES;
 
@@ -21,12 +22,12 @@ pub struct Selection {
 
 pub async fn pick() -> Result<Option<Selection>> {
     let selected = match SelectedFiles::open_file()
-        .title("Choose launcher icon")
-        .accept_label("Select")
+        .title(t!("launcher.choose-launcher-icon").as_ref())
+        .accept_label(t!("common.select").as_ref())
         .modal(true)
         .multiple(false)
         .filter(
-            FileFilter::new("Launcher icons")
+            FileFilter::new(&t!("launcher.launcher-icons"))
                 .mimetype("image/png")
                 .mimetype("image/jpeg")
                 .mimetype("image/svg+xml"),
