@@ -20,7 +20,8 @@ use crate::{
     config::Config,
     constants::DBUS_PATH,
     portals::{
-        appchooser::service::SELECT_COMMAND, print::dialog::DIALOG_COMMAND,
+        appchooser::service::SELECT_COMMAND,
+        dynamic_launcher::DIALOG_COMMAND as LAUNCHER_DIALOG_COMMAND, print::dialog::DIALOG_COMMAND,
         settings::service::SettingsService,
     },
     utils::command::resolve_command,
@@ -59,6 +60,7 @@ fn watch_directories(targets: &HashSet<PathBuf>) -> HashMap<PathBuf, DirectoryId
 pub struct EnabledPortals {
     settings: bool,
     appchooser: bool,
+    dynamic_launcher: bool,
     email: bool,
     print: bool,
     notification: bool,
@@ -73,6 +75,10 @@ impl From<&Config> for EnabledPortals {
                 .is_some_and(|config| config.enabled),
             appchooser: config
                 .appchooser
+                .as_ref()
+                .is_some_and(|config| config.enabled),
+            dynamic_launcher: config
+                .dynamic_launcher
                 .as_ref()
                 .is_some_and(|config| config.enabled),
             email: config.email.as_ref().is_some_and(|config| config.enabled),
@@ -224,6 +230,7 @@ fn watch_targets() -> HashSet<PathBuf> {
 pub struct Reload {
     pub enabled: EnabledPortals,
     pub appchooser: Option<watch::Sender<PathBuf>>,
+    pub dynamic_launcher: Option<watch::Sender<PathBuf>>,
     pub email: Option<watch::Sender<PathBuf>>,
     pub print: Option<watch::Sender<PathBuf>>,
 }
@@ -266,6 +273,14 @@ impl Reload {
         if let Some(sender) = &self.appchooser {
             let config = config.appchooser.unwrap_or_default();
             update_command(sender, config.command.as_deref().unwrap_or(SELECT_COMMAND));
+        }
+
+        if let Some(sender) = &self.dynamic_launcher {
+            let config = config.dynamic_launcher.unwrap_or_default();
+            update_command(
+                sender,
+                config.command.as_deref().unwrap_or(LAUNCHER_DIALOG_COMMAND),
+            );
         }
 
         if let Some(sender) = &self.email {

@@ -5,7 +5,8 @@ use zenzai_core::{
 };
 
 use crate::portals::{
-    email::EmailConfig, notification::config::NotificationConfig, print::config::PrintConfig,
+    dynamic_launcher::DynamicLauncherConfig, email::EmailConfig,
+    notification::config::NotificationConfig, print::config::PrintConfig,
     settings::config::SettingsConfig,
 };
 
@@ -14,6 +15,8 @@ pub struct Config {
     pub terminal: Option<TerminalName>,
     pub settings: Option<SettingsConfig>,
     pub appchooser: Option<AppChooserConfig>,
+    #[serde(rename = "dynamic-launcher")]
+    pub dynamic_launcher: Option<DynamicLauncherConfig>,
     pub email: Option<EmailConfig>,
     pub print: Option<PrintConfig>,
     pub notification: Option<NotificationConfig>,
@@ -51,6 +54,13 @@ mod tests {
         assert!(appchooser.command.is_some());
         assert!(!appchooser.write_mimeapps);
         assert_eq!(appchooser.defaults.len(), 3);
+
+        let dynamic_launcher = config.dynamic_launcher.unwrap();
+        assert!(dynamic_launcher.enabled);
+        assert_eq!(
+            dynamic_launcher.command.as_deref(),
+            Some("zenzai-dialog-launcher")
+        );
 
         let email = config.email.unwrap();
         assert!(email.enabled);

@@ -1753,6 +1753,8 @@ dependencies = [
  "moxcms",
  "num-traits",
  "png 0.18.1",
+ "zune-core 0.5.3",
+ "zune-jpeg 0.5.15",
 ]
 
 [[package]]
@@ -4819,7 +4821,7 @@ checksum = "2fb433233f2df9344722454bc7e96465c9d03bff9d77c248f9e7523fe79585b5"
 
 [[package]]
 name = "xdg-desktop-portal-zenzai"
-version = "0.5.1"
+version = "0.6.0"
 dependencies = [
  "anyhow",
  "futures-util",
@@ -4963,7 +4965,7 @@ checksum = "6df3dc4292935e51816d896edcd52aa30bc297907c26167fec31e2b0c6a32524"
 
 [[package]]
 name = "zenzai-app-select"
-version = "0.5.1"
+version = "0.6.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -4988,7 +4990,7 @@ dependencies = [
 
 [[package]]
 name = "zenzai-core"
-version = "0.5.1"
+version = "0.6.0"
 dependencies = [
  "anyhow",
  "csscolorparser",
@@ -4999,8 +5001,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "zenzai-dialog-launcher"
+version = "0.6.0"
+dependencies = [
+ "anyhow",
+ "ashpd",
+ "clap",
+ "data-url",
+ "iced",
+ "image",
+ "serde_json",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+ "url",
+ "usvg",
+ "zenzai-core",
+]
+
+[[package]]
 name = "zenzai-dialog-print"
-version = "0.5.1"
+version = "0.6.0"
 dependencies = [
  "anyhow",
  "ashpd",

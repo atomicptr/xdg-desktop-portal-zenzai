@@ -67,3 +67,34 @@ pub struct Email {
     pub body: String,
     pub attachments: Vec<String>,
 }
+
+pub const MAX_LAUNCHER_ICON_BYTES: usize = 16 * 1024 * 1024;
+// JSON byte arrays expand up to fourfold; allow headroom for the remaining fields.
+pub const MAX_LAUNCHER_MESSAGE_BYTES: u64 = 80 * 1024 * 1024;
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub enum LauncherType {
+    Application,
+    Webapp,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LauncherRequest {
+    pub app_id: String,
+    pub name: String,
+    pub launcher_type: LauncherType,
+    pub target: Option<String>,
+    pub icon: Vec<u8>,
+    pub editable_name: bool,
+    #[serde(default)]
+    pub editable_icon: bool,
+    pub parent_window: String,
+    pub modal: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct LauncherResponse {
+    pub name: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub icon: Option<Vec<u8>>,
+}

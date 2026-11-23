@@ -5,6 +5,7 @@ A collection of several xdg-desktop-portal implementations to serve more lightwe
 ## Supported Portals
 
 - [App Chooser](https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.impl.portal.AppChooser.html) - choose an application
+- [Dynamic Launcher](https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.impl.portal.DynamicLauncher.html) - approve launcher creation
 - [Email](https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.impl.portal.Email.html) - compose email using the application chooser
 - [Notification](https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.impl.portal.Notification.html) - forward notifications to a local daemon such as mako or dunst
 - [Print](https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.impl.portal.Print.html) - print documents (requires CUPS)
@@ -16,6 +17,7 @@ Tools integrated with the portal
 
 - `zenzai-app-select` - Custom app chooser dialog
 - `zenzai-dialog-print` - Custom print dialog
+- `zenzai-dialog-launcher` - Custom launcher approval dialog
 
 ## Install
 
@@ -75,6 +77,11 @@ write-mimeapps = true # set false to keep remembered defaults local without upda
 "image/jpeg" = "io.github.woelper.Oculante" # or execute desktop files
 "image/*" = ["io.github.woelper.Oculante.desktop", { command = "imv" }]
 
+### Dynamic Launcher Portal Config (opt-in)
+[dynamic-launcher]
+enabled = true
+command = "zenzai-dialog-launcher" # executable override, looked up on PATH by default
+
 ### Email Portal Config
 [email]
 enabled = true # independent of appchooser.enabled
@@ -118,6 +125,7 @@ To use zenzai you need to create `~/.config/xdg-desktop-portal/CURRENT_DESKTOP_N
 [preferred]
 default=hyprland;zenzai;gtk
 org.freedesktop.impl.portal.AppChooser=zenzai
+org.freedesktop.impl.portal.DynamicLauncher=zenzai
 org.freedesktop.impl.portal.Email=zenzai
 org.freedesktop.impl.portal.Settings=zenzai
 org.freedesktop.impl.portal.Print=zenzai

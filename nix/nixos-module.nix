@@ -29,7 +29,7 @@ in
 
       enableDefaultPath = false;
       environment = {
-        RUST_LOG = "warn,xdg_desktop_portal_zenzai=debug,zenzai_core=debug,zenzai_app_select=debug,zenzai_dialog_print=debug";
+        RUST_LOG = "warn,xdg_desktop_portal_zenzai=debug,zenzai_core=debug,zenzai_app_select=debug,zenzai_dialog_print=debug,zenzai_dialog_launcher=debug";
       };
     };
 

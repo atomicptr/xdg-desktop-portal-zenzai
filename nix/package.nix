@@ -54,7 +54,7 @@ rustPlatform.buildRustPackage {
 
   # winit loads these at runtime via dlopen
   postFixup = ''
-    for executable in zenzai-dialog-print zenzai-app-select; do
+    for executable in zenzai-dialog-print zenzai-app-select zenzai-dialog-launcher; do
       patchelf --add-rpath ${
         lib.makeLibraryPath [
           libxkbcommon

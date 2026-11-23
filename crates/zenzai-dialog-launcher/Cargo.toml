@@ -1,0 +1,26 @@
+[package]
+name = "zenzai-dialog-launcher"
+description = "A compact dynamic launcher confirmation dialog"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+ashpd = { version = "0.14.3", default-features = false, features = ["file_chooser", "tokio"] }
+clap = { version = "4.6.9", features = ["derive"] }
+data-url = "0.3.2"
+iced = { workspace = true, features = ["svg", "fira-sans"] }
+image = { version = "0.25.10", default-features = false, features = ["png", "jpeg"] }
+serde_json.workspace = true
+tokio.workspace = true
+url = "2.5.9"
+tracing.workspace = true
+tracing-subscriber.workspace = true
+usvg = { version = "0.45.1", default-features = false, features = ["text", "system-fonts"] }
+zenzai-core = { workspace = true, features = ["ui"] }
+
+[lints]
+workspace = true

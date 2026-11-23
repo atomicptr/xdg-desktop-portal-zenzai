@@ -4,6 +4,7 @@ let
   inherit (cfg.portals)
     settings
     appchooser
+    dynamicLauncher
     email
     print
     ;
@@ -28,6 +29,15 @@ lib.filterAttrsRecursive (_: value: value != null) {
       else
         lib.getExe' cfg.package "zenzai-app-select";
     inherit (appchooser) defaults;
+  };
+
+  dynamic-launcher = {
+    enabled = dynamicLauncher.enable;
+    command =
+      if dynamicLauncher.command != null then
+        dynamicLauncher.command
+      else
+        lib.getExe' cfg.package "zenzai-dialog-launcher";
   };
 
   email = {

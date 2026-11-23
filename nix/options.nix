@@ -120,6 +120,12 @@ in
       };
     };
 
+    dynamicLauncher = {
+      enable = mkEnableOption "the DynamicLauncher portal";
+
+      command = nullOr types.str "Launcher dialog executable, defaults to the packaged zenzai-dialog-launcher.";
+    };
+
     email = {
       enable = mkEnableOption "the Email portal";
 

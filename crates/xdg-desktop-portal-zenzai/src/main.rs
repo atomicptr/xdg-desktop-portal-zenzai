@@ -3,6 +3,7 @@ use config::Config;
 use constants::{APP_VERSION, DBUS_NAME, DBUS_PATH};
 use portals::{
     appchooser::service::{AppChooserService, SELECT_COMMAND},
+    dynamic_launcher::{DIALOG_COMMAND as LAUNCHER_DIALOG_COMMAND, DynamicLauncherService},
     email::EmailService,
     notification::service::NotificationService,
     print::{dialog::DIALOG_COMMAND, service::PrintService},
@@ -41,6 +42,7 @@ async fn main() -> Result<()> {
     let mut reload = Reload {
         enabled: EnabledPortals::from(&config),
         appchooser: None,
+        dynamic_launcher: None,
         email: None,
         print: None,
     };
@@ -74,6 +76,26 @@ async fn main() -> Result<()> {
                 conn = conn.serve_at(DBUS_PATH, AppChooserService { command });
             }
             Err(err) => tracing::error!("AppChooser disabled, could not find {command:?}: {err}"),
+        }
+    }
+
+    if let Some(config) = config.dynamic_launcher
+        && config.enabled
+    {
+        let command = config.command.as_deref().unwrap_or(LAUNCHER_DIALOG_COMMAND);
+
+        match resolve_command(command) {
+            Ok(command) => {
+                any_enabled = true;
+
+                tracing::info!("portal: org.freedesktop.portal.DynamicLauncher enabled!");
+                let (sender, command) = watch::channel(command);
+                reload.dynamic_launcher = Some(sender);
+                conn = conn.serve_at(DBUS_PATH, DynamicLauncherService { command });
+            }
+            Err(err) => {
+                tracing::error!("DynamicLauncher disabled, could not find {command:?}: {err}");
+            }
         }
     }
 

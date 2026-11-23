@@ -35,6 +35,11 @@
     };
   };
 
+  portals.dynamicLauncher = {
+    enable = true;
+    command = "zenzai-dialog-launcher";
+  };
+
   portals.email = {
     enable = true;
     command = "zenzai-app-select";
