@@ -93,6 +93,7 @@ impl AccessService {
                 deny_label: text_option(&options, "deny_label")?,
                 grant_label: text_option(&options, "grant_label")?,
                 icon: text_option(&options, "icon")?,
+                image: None,
                 modal: options
                     .get("modal")
                     .map(Variant::downcast_ref::<bool>)

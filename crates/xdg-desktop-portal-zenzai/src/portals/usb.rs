@@ -122,6 +122,7 @@ fn request(app_id: &str, parent_window: &str, devices: &[Device]) -> AccessReque
         deny_label: Some(t!("common.deny").into()),
         grant_label: Some(t!("usb.allow-selected").into()),
         icon: Some("drive-removable-media-usb".into()),
+        image: None,
         modal: true,
         choices: devices
             .iter()

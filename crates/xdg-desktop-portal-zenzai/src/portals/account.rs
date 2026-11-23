@@ -1,6 +1,10 @@
-use std::{collections::HashMap, fmt, path::PathBuf};
+use std::{
+    collections::HashMap,
+    fmt,
+    path::{Path, PathBuf},
+};
 
-use anyhow::{Context, Result, ensure};
+use anyhow::{Context, Result, anyhow, ensure};
 use nix::unistd::{Uid, User};
 use rust_i18n::t;
 use serde::Deserialize;
@@ -80,20 +84,26 @@ fn resolve_profile(config: AccountConfig, user: Option<&User>) -> Result<Profile
     let image = config
         .image
         .filter(|path| !path.as_os_str().is_empty())
-        .map(|path| {
-            ensure!(
-                path.is_absolute(),
-                "account image must be an absolute local path"
-            );
-            ensure!(path.is_file(), "account image is not a regular file");
-            Url::from_file_path(path).map_err(|()| anyhow::anyhow!("invalid account image path"))
-        })
-        .transpose()?;
+        // An unusable image must not prevent sharing the remaining account information.
+        .and_then(|path| {
+            resolve_image(&path)
+                .inspect_err(|err| tracing::warn!("ignoring account image: {err}"))
+                .ok()
+        });
     ensure!(
         !id.is_empty() || !name.is_empty() || image.is_some(),
         "no account information available"
     );
     Ok(Profile { id, name, image })
+}
+
+fn resolve_image(path: &Path) -> Result<Url> {
+    ensure!(
+        path.is_absolute(),
+        "account image must be an absolute local path"
+    );
+    ensure!(path.is_file(), "account image is not a regular file");
+    Url::from_file_path(path).map_err(|()| anyhow!("invalid account image path"))
 }
 
 #[interface(name = "org.freedesktop.impl.portal.Account")]
@@ -158,6 +168,10 @@ impl AccountService {
                 deny_label: Some(t!("common.cancel").into()),
                 grant_label: Some(t!("account.share-button").into()),
                 icon: Some("avatar-default".into()),
+                image: profile
+                    .image
+                    .as_ref()
+                    .and_then(|url| url.to_file_path().ok()),
                 modal: true,
                 choices: Vec::new(),
             };
@@ -218,5 +232,13 @@ mod tests {
         assert_eq!(profile.name, "");
         assert!(profile.image.is_none());
         assert!(resolve_profile(AccountConfig::default(), None).is_err());
+
+        let config = AccountConfig {
+            image: Some("/nonexistent/avatar.png".into()),
+            ..AccountConfig::default()
+        };
+        let profile = resolve_profile(config, Some(&user)).unwrap();
+        assert_eq!(profile.id, "login");
+        assert!(profile.image.is_none());
     }
 }

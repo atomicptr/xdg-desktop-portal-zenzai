@@ -45,9 +45,20 @@ pub fn run(request: AccessRequest) -> Result<Option<AccessResponse>> {
         UiConfig::default()
     });
     let icon = request
-        .icon
+        .image
         .as_deref()
-        .and_then(|name| icons::load(name, ICON_SIZE, config.icon_theme.as_deref()))
+        .and_then(|path| {
+            icons::load_image(path).or_else(|| {
+                tracing::warn!("could not load request image; using icon instead");
+                None
+            })
+        })
+        .or_else(|| {
+            request
+                .icon
+                .as_deref()
+                .and_then(|name| icons::load(name, ICON_SIZE, config.icon_theme.as_deref()))
+        })
         .or_else(|| icons::load("dialog-question", ICON_SIZE, config.icon_theme.as_deref()));
     let theme = theme(&config);
     let font = config.theme.font.map(|name| Font::with_name(name.leak()));

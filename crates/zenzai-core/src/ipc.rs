@@ -112,6 +112,9 @@ pub struct AccessRequest {
     pub deny_label: Option<String>,
     pub grant_label: Option<String>,
     pub icon: Option<String>,
+    /// Local image shown instead of the icon when it can be loaded.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub image: Option<PathBuf>,
     pub modal: bool,
     pub choices: Vec<AccessChoice>,
 }

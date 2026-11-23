@@ -55,6 +55,7 @@ fn run(cli: &Cli) -> Result<bool> {
             deny_label: Some(t!("common.deny").into()),
             grant_label: Some(t!("common.accept").into()),
             icon: Some("audio-input-microphone".into()),
+            image: None,
             modal: false,
             choices: Vec::new(),
         }
