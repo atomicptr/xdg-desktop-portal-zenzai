@@ -3,14 +3,14 @@ resolver = "3"
 members = ["crates/*"]
 
 [workspace.package]
-version = "0.7.1"
+version = "0.7.2"
 edition = "2024"
 rust-version = "1.99"
 license = "GPL-3.0-or-later"
 repository = "https://github.com/atomicptr/xdg-desktop-portal-zenzai"
 
 [workspace.dependencies]
-zenzai-core = { path = "crates/zenzai-core", version = "0.7.1" }
+zenzai-core = { path = "crates/zenzai-core", version = "0.7.2" }
 anyhow = "1.0.105"
 csscolorparser = { version = "0.9.2", features = ["serde"] }
 dirs = "7.0.0"
