@@ -18,11 +18,20 @@ use zenzai_core::ipc::{
 
 pub const DIALOG_COMMAND: &str = "zenzai-dialog-launcher";
 
-#[derive(Debug, Default, Deserialize)]
-#[serde(rename_all = "kebab-case")]
+#[derive(Debug, Deserialize)]
+#[serde(default, rename_all = "kebab-case")]
 pub struct DynamicLauncherConfig {
     pub enabled: bool,
     pub command: Option<String>,
+}
+
+impl Default for DynamicLauncherConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            command: None,
+        }
+    }
 }
 
 pub struct DynamicLauncherService {

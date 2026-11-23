@@ -20,7 +20,7 @@ rust-i18n.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 tempfile.workspace = true
-tokio = { version = "1.54.1", features = ["rt"] }
+tokio = { workspace = true, features = ["rt", "sync"] }
 tracing.workspace = true
 tracing-subscriber.workspace = true
 url = "2.5.9"

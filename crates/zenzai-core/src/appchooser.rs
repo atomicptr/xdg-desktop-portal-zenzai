@@ -14,7 +14,7 @@ pub struct AppChooserConfig {
 impl Default for AppChooserConfig {
     fn default() -> Self {
         Self {
-            enabled: false,
+            enabled: true,
             command: None,
             defaults: BTreeMap::new(),
             write_mimeapps: true,

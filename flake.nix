@@ -58,22 +58,33 @@
 
         module-config =
           let
-            module = lib.evalModules {
-              modules = [
-                {
-                  options.services.xdg-desktop-portal-zenzai = import ./nix/options.nix {
-                    inherit lib;
-                    defaultPackage = package pkgs;
-                  };
-                  config.services.xdg-desktop-portal-zenzai = import ./nix/tests/full-config.nix;
-                }
-              ];
-            };
+            evaluate =
+              config:
+              lib.evalModules {
+                modules = [
+                  {
+                    options.services.xdg-desktop-portal-zenzai = import ./nix/options.nix {
+                      inherit lib;
+                      defaultPackage = package pkgs;
+                    };
+                    config.services.xdg-desktop-portal-zenzai = config;
+                  }
+                ];
+              };
+            module = evaluate (import ./nix/tests/full-config.nix);
+            defaults = (evaluate { }).config.services.xdg-desktop-portal-zenzai;
+            optedOut = (evaluate { portals.usb.enable = false; }).config.services.xdg-desktop-portal-zenzai;
+            disabledConfig = import ./nix/config.nix { inherit lib; } optedOut;
 
             generated = import ./nix/config.nix {
               inherit lib;
             } module.config.services.xdg-desktop-portal-zenzai;
           in
+          assert lib.all (portal: portal.enable) (builtins.attrValues defaults.portals);
+          assert !disabledConfig.usb.enabled;
+          assert lib.all (portal: portal.enable) (
+            builtins.attrValues (builtins.removeAttrs optedOut.portals [ "usb" ])
+          );
           assert generated == lib.importTOML ./crates/xdg-desktop-portal-zenzai/tests/full-config.toml;
           pkgs.emptyFile;
       });

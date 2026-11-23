@@ -71,26 +71,14 @@ pub struct EnabledPortals {
 impl From<&Config> for EnabledPortals {
     fn from(config: &Config) -> Self {
         Self {
-            access: config.access.as_ref().is_some_and(|config| config.enabled),
-            usb: config.usb.as_ref().is_some_and(|config| config.enabled),
-            settings: config
-                .settings
-                .as_ref()
-                .is_some_and(|config| config.enabled),
-            appchooser: config
-                .appchooser
-                .as_ref()
-                .is_some_and(|config| config.enabled),
-            dynamic_launcher: config
-                .dynamic_launcher
-                .as_ref()
-                .is_some_and(|config| config.enabled),
-            email: config.email.as_ref().is_some_and(|config| config.enabled),
-            print: config.print.as_ref().is_some_and(|config| config.enabled),
-            notification: config
-                .notification
-                .as_ref()
-                .is_some_and(|config| config.enabled),
+            access: config.access.enabled,
+            usb: config.usb.enabled,
+            settings: config.settings.enabled,
+            appchooser: config.appchooser.enabled,
+            dynamic_launcher: config.dynamic_launcher.enabled,
+            email: config.email.enabled,
+            print: config.print.enabled,
+            notification: config.notification.enabled,
         }
     }
 }
@@ -258,10 +246,7 @@ impl Reload {
             .interface::<_, SettingsService>(DBUS_PATH)
             .await
         {
-            let changes = interface
-                .get_mut()
-                .await
-                .update(config.settings.unwrap_or_default());
+            let changes = interface.get_mut().await.update(config.settings);
             for change in changes {
                 if let Err(err) = SettingsService::setting_changed(
                     interface.signal_emitter(),
@@ -277,7 +262,7 @@ impl Reload {
         }
 
         if let Some(sender) = &self.access {
-            let config = config.access.unwrap_or_default();
+            let config = config.access;
             update_command(
                 sender,
                 config.command.as_deref().unwrap_or(ACCESS_DIALOG_COMMAND),
@@ -285,7 +270,7 @@ impl Reload {
         }
 
         if let Some(sender) = &self.usb {
-            let config = config.usb.unwrap_or_default();
+            let config = config.usb;
             update_command(
                 sender,
                 config.command.as_deref().unwrap_or(USB_DIALOG_COMMAND),
@@ -293,12 +278,12 @@ impl Reload {
         }
 
         if let Some(sender) = &self.appchooser {
-            let config = config.appchooser.unwrap_or_default();
+            let config = config.appchooser;
             update_command(sender, config.command.as_deref().unwrap_or(SELECT_COMMAND));
         }
 
         if let Some(sender) = &self.dynamic_launcher {
-            let config = config.dynamic_launcher.unwrap_or_default();
+            let config = config.dynamic_launcher;
             update_command(
                 sender,
                 config.command.as_deref().unwrap_or(LAUNCHER_DIALOG_COMMAND),
@@ -306,12 +291,12 @@ impl Reload {
         }
 
         if let Some(sender) = &self.email {
-            let config = config.email.unwrap_or_default();
+            let config = config.email;
             update_command(sender, config.command.as_deref().unwrap_or(SELECT_COMMAND));
         }
 
         if let Some(sender) = &self.print {
-            let config = config.print.unwrap_or_default();
+            let config = config.print;
             update_command(sender, config.command.as_deref().unwrap_or(DIALOG_COMMAND));
         }
 

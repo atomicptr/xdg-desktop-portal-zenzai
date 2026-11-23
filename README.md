@@ -46,7 +46,6 @@ Tools integrated with the portal
           services.xdg-desktop-portal-zenzai = {
             enable = true;
             portals.settings = {
-              enable = true;
               colorScheme = "dark";
               accentColor = "#b4befe";
             };
@@ -103,7 +102,7 @@ command = "zenzai-app-select" # selector executable override, looked up on PATH 
 
 ### Settings Portal Config
 [settings]
-enabled = true # portals have to be explicitly enabled
+enabled = true # default; set false to disable
 color-scheme = "dark" # set color scheme to dark/light
 accent-color = "#b4befe" # define an accent color
 

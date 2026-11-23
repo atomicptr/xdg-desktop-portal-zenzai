@@ -21,11 +21,20 @@ type DeviceInput = (
     HashMap<String, OwnedVariant>,
 );
 
-#[derive(Debug, Default, Deserialize)]
-#[serde(rename_all = "kebab-case")]
+#[derive(Debug, Deserialize)]
+#[serde(default, rename_all = "kebab-case")]
 pub struct UsbConfig {
     pub enabled: bool,
     pub command: Option<String>,
+}
+
+impl Default for UsbConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            command: None,
+        }
+    }
 }
 
 pub struct UsbService {

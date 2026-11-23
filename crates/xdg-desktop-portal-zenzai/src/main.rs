@@ -61,18 +61,16 @@ async fn main() -> Result<()> {
 
     let mut conn = Builder::session().name(DBUS_NAME);
 
-    if let Some(config) = config.settings
-        && config.enabled
-    {
+    if config.settings.enabled {
+        let config = config.settings;
         any_enabled = true;
 
         tracing::info!("portal: org.freedesktop.portal.Settings enabled!");
         conn = conn.serve_at(DBUS_PATH, SettingsService::new(config));
     }
 
-    if let Some(config) = config.access
-        && config.enabled
-    {
+    if config.access.enabled {
+        let config = config.access;
         let command = config.command.as_deref().unwrap_or(ACCESS_DIALOG_COMMAND);
         match resolve_command(command) {
             Ok(command) => {
@@ -86,9 +84,8 @@ async fn main() -> Result<()> {
         }
     }
 
-    if let Some(config) = config.usb
-        && config.enabled
-    {
+    if config.usb.enabled {
+        let config = config.usb;
         let command = config.command.as_deref().unwrap_or(USB_DIALOG_COMMAND);
 
         match resolve_command(command) {
@@ -104,9 +101,8 @@ async fn main() -> Result<()> {
         }
     }
 
-    if let Some(config) = config.appchooser
-        && config.enabled
-    {
+    if config.appchooser.enabled {
+        let config = config.appchooser;
         let command = config.command.as_deref().unwrap_or(SELECT_COMMAND);
         match resolve_command(command) {
             Ok(command) => {
@@ -120,9 +116,8 @@ async fn main() -> Result<()> {
         }
     }
 
-    if let Some(config) = config.dynamic_launcher
-        && config.enabled
-    {
+    if config.dynamic_launcher.enabled {
+        let config = config.dynamic_launcher;
         let command = config.command.as_deref().unwrap_or(LAUNCHER_DIALOG_COMMAND);
 
         match resolve_command(command) {
@@ -140,9 +135,8 @@ async fn main() -> Result<()> {
         }
     }
 
-    if let Some(config) = config.email
-        && config.enabled
-    {
+    if config.email.enabled {
+        let config = config.email;
         let command = config.command.as_deref().unwrap_or(SELECT_COMMAND);
 
         match resolve_command(command) {
@@ -163,9 +157,8 @@ async fn main() -> Result<()> {
         }
     }
 
-    if let Some(config) = config.print
-        && config.enabled
-    {
+    if config.print.enabled {
+        let config = config.print;
         let command = config.command.as_deref().unwrap_or(DIALOG_COMMAND);
 
         if let Ok(command) = resolve_command(command) {
@@ -182,7 +175,7 @@ async fn main() -> Result<()> {
         }
     }
 
-    if config.notification.is_some_and(|config| config.enabled) {
+    if config.notification.enabled {
         any_enabled = true;
         tracing::info!("portal: org.freedesktop.portal.Notification enabled!");
         conn = conn.serve_at(DBUS_PATH, NotificationService::default());

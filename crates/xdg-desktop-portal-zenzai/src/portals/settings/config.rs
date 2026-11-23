@@ -4,8 +4,8 @@ use serde::Deserialize;
 use zbus::Variant;
 use zenzai_core::appearance::{AccentColor, ColorScheme};
 
-#[derive(Debug, Deserialize, Default)]
-#[serde(rename_all = "kebab-case")]
+#[derive(Debug, Deserialize)]
+#[serde(default, rename_all = "kebab-case")]
 pub struct SettingsConfig {
     pub enabled: bool,
     #[serde(default)]
@@ -15,6 +15,18 @@ pub struct SettingsConfig {
     pub contrast: Contrast,
     #[serde(default)]
     pub dict: HashMap<String, HashMap<String, SettingsMapValue>>,
+}
+
+impl Default for SettingsConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            color_scheme: ColorScheme::default(),
+            accent_color: None,
+            contrast: Contrast::default(),
+            dict: HashMap::new(),
+        }
+    }
 }
 
 #[derive(Debug, Deserialize, Default, Clone, Copy)]

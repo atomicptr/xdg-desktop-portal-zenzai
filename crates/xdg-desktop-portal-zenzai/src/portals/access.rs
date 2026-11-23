@@ -13,11 +13,20 @@ use zenzai_core::ipc::{AccessChoice, AccessRequest};
 
 pub const DIALOG_COMMAND: &str = "zenzai-dialog-access";
 
-#[derive(Debug, Default, Deserialize)]
-#[serde(rename_all = "kebab-case")]
+#[derive(Debug, Deserialize)]
+#[serde(default, rename_all = "kebab-case")]
 pub struct AccessConfig {
     pub enabled: bool,
     pub command: Option<String>,
+}
+
+impl Default for AccessConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            command: None,
+        }
+    }
 }
 
 pub struct AccessService {

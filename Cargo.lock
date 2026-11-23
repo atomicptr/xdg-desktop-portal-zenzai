@@ -4028,7 +4028,6 @@ dependencies = [
  "bytes",
  "libc",
  "mio",
- "parking_lot",
  "pin-project-lite",
  "signal-hook-registry",
  "socket2",
@@ -5268,7 +5267,6 @@ dependencies = [
  "dirs 7.0.0",
  "freedesktop-desktop-entry",
  "iced",
- "image",
  "rust-i18n",
  "rust-ini",
  "rustix 1.1.6",
@@ -5449,10 +5447,7 @@ checksum = "ac67096b97c00742108c4674db6bb6178adb78c4b66a506b0e4a7a9593aa5d9e"
 dependencies = [
  "futures-core",
  "futures-io",
- "rustix 1.1.6",
- "socket2",
  "tracing",
- "windows-sys 0.61.2",
 ]
 
 [[package]]

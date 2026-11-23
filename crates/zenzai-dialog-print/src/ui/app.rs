@@ -495,17 +495,17 @@ fn select(state: &mut State, destination: Destination) -> Task<Message> {
 
 // options chosen for another printer must not leak into this job
 fn apply_capabilities(settings: &mut JobSettings, caps: &Capabilities) {
-    let paper_supported = settings
-        .paper
-        .as_ref()
-        .is_some_and(|paper| caps.papers.is_empty() || caps.papers.contains(paper));
-
-    if !paper_supported {
-        // prefer the same size under the printer's own name over the printer's default
+    if !caps.papers.is_empty() || settings.paper.is_none() {
+        // Preserve the media variant before falling back to another name for the same size.
         settings.paper = settings
             .paper
             .as_ref()
-            .and_then(|paper| caps.papers.iter().find(|known| known.same_size(paper)))
+            .and_then(|paper| {
+                caps.papers
+                    .iter()
+                    .find(|known| known.name == paper.name)
+                    .or_else(|| caps.papers.iter().find(|known| known.same_size(paper)))
+            })
             .or(caps.default_paper.as_ref())
             .or(caps.papers.first())
             .cloned();
@@ -947,6 +947,32 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn capabilities_preserve_the_selected_media_variant_and_refresh_its_label() {
+        let regular = Paper::from_pwg("iso_a4_210x297mm").unwrap();
+        let selected = Paper::from_pwg("om_a4-borderless_210x297mm").unwrap();
+        let mut localized = selected.clone();
+        localized.distinguish();
+        let caps = Capabilities {
+            papers: vec![regular, localized.clone()],
+            ..Default::default()
+        };
+        let mut settings = JobSettings {
+            paper: Some(selected),
+            ..Default::default()
+        };
+
+        apply_capabilities(&mut settings, &caps);
+        assert_eq!(settings.paper.as_ref(), Some(&localized));
+
+        settings.paper = Paper::from_pwg("driver-a4_210x297mm");
+        apply_capabilities(&mut settings, &caps);
+        assert_eq!(settings.paper.as_ref(), caps.papers.first());
+
+        apply_capabilities(&mut settings, &Capabilities::default());
+        assert_eq!(settings.paper.as_ref(), caps.papers.first());
     }
 
     #[test]

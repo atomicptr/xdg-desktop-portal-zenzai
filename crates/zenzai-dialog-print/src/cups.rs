@@ -163,22 +163,55 @@ pub fn capabilities(name: &str) -> Result<Capabilities> {
             .unwrap_or(STANDARD_MEDIA_TYPES.len())
     });
 
+    let paper = |name: &str| {
+        if CUSTOM_RANGE_PREFIXES
+            .iter()
+            .any(|prefix| name.starts_with(prefix))
+        {
+            return None;
+        }
+
+        info.get_media_by_name(http, raw, name, 0)
+            .ok()
+            .and_then(|size| {
+                let label = connection
+                    .as_ref()
+                    .ok()
+                    .and_then(|_| info.localize_media(http, raw, 0, &size).ok());
+
+                // CUPS can canonicalize names; jobs must retain the supported keyword.
+                Paper::from_cups(name, &size, label)
+            })
+            .or_else(|| Paper::from_pwg(name))
+    };
+
     // Only media-supported names are valid job options; custom_min_/max_ describe size limits.
-    let papers = supported(ipp::MEDIA)
+    let mut papers: Vec<_> = supported(ipp::MEDIA)
         .iter()
-        .filter(|name| {
-            !CUSTOM_RANGE_PREFIXES
-                .iter()
-                .any(|prefix| name.starts_with(prefix))
-        })
-        .filter_map(|name| Paper::from_pwg(name))
+        .filter_map(|name| paper(name))
         .collect();
+
+    // Drivers may localize distinct media variants to the same label.
+    let duplicate_labels: Vec<_> = papers
+        .iter()
+        .map(|paper| {
+            papers.iter().any(|other| {
+                other.name != paper.name && other.display_name() == paper.display_name()
+            })
+        })
+        .collect();
+
+    for (paper, duplicate) in papers.iter_mut().zip(duplicate_labels) {
+        if duplicate {
+            paper.distinguish();
+        }
+    }
 
     let default_paper = info
         .get_default_value(http, raw, ipp::MEDIA)
         .ok()
         .flatten()
-        .and_then(|name| Paper::from_pwg(&name));
+        .and_then(|name| papers.iter().find(|paper| paper.name == name).cloned());
 
     Ok(Capabilities {
         papers,

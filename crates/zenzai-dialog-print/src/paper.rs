@@ -1,5 +1,6 @@
 use std::fmt;
 
+use cups_rs::MediaSize;
 use rust_i18n::t;
 
 const MM_PER_INCH: f64 = 25.4;
@@ -48,6 +49,7 @@ pub struct Paper {
     pub width_mm: f64,
     pub height_mm: f64,
     display: String,
+    localized: Option<String>,
 }
 
 impl Paper {
@@ -59,7 +61,35 @@ impl Paper {
             name: name.to_string(),
             width_mm,
             height_mm,
+            localized: None,
         })
+    }
+
+    pub fn from_cups(name: &str, size: &MediaSize, label: Option<String>) -> Option<Self> {
+        let (width_mm, height_mm) = (size.width_mm(), size.length_mm());
+
+        if width_mm <= 0.0 || height_mm <= 0.0 {
+            return None;
+        }
+
+        let localized =
+            label.filter(|label| !label.trim().is_empty() && label != name && label != &size.name);
+
+        Some(Self {
+            name: name.to_string(),
+            width_mm,
+            height_mm,
+            display: localized
+                .clone()
+                .unwrap_or_else(|| display_name(name, (width_mm, height_mm), "en")),
+            localized,
+        })
+    }
+
+    pub fn distinguish(&mut self) {
+        let label = format!("{} ({})", self, self.name);
+        self.display.clone_from(&label);
+        self.localized = Some(label);
     }
 
     pub fn parse(value: &str) -> Option<Self> {
@@ -179,6 +209,10 @@ fn capitalize(value: &str) -> String {
 
 impl fmt::Display for Paper {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if let Some(label) = &self.localized {
+            return f.write_str(label);
+        }
+
         f.write_str(&display_name(
             &self.name,
             (self.width_mm, self.height_mm),
@@ -212,5 +246,35 @@ mod tests {
         assert_eq!(name("na_letter_8.5x11in"), "US Letter");
         assert_eq!(name("om_a4-borderless_210x297mm"), "A4 (borderless)");
         assert_eq!(name("na_index-5x8_5x8in"), "Index 5x8 (127 × 203 mm)");
+    }
+
+    #[test]
+    fn cups_metadata_preserves_submission_names_and_rejects_invalid_sizes() {
+        let mut size = MediaSize {
+            name: "iso_a4_210x297mm".to_string(),
+            width: 21000,
+            length: 29700,
+            bottom: 0,
+            left: 0,
+            right: 0,
+            top: 0,
+        };
+        let mut paper = Paper::from_cups("driver-a4-borderless", &size, Some("A4".into())).unwrap();
+        assert_eq!(paper.name, "driver-a4-borderless");
+        assert_eq!((paper.width_mm, paper.height_mm), (210.0, 297.0));
+        assert_eq!(paper.to_string(), "A4");
+
+        paper.distinguish();
+        assert_eq!(paper.to_string(), "A4 (driver-a4-borderless)");
+        assert_eq!(paper.display_name(), "A4 (driver-a4-borderless)");
+
+        let fallback =
+            Paper::from_cups("iso_a4_210x297mm", &size, Some(size.name.clone())).unwrap();
+        assert_eq!(fallback.display_name(), "A4");
+
+        size.width = 0;
+        assert!(Paper::from_cups("driver-a4", &size, None).is_none());
+        size.width = -1;
+        assert!(Paper::from_cups("driver-a4", &size, None).is_none());
     }
 }

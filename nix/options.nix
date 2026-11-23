@@ -49,19 +49,25 @@ in
   iconTheme = nullOr types.str "Icon theme used by all companion GUIs; preserves default lookup when unset.";
   portals = {
     access = {
-      enable = mkEnableOption "the Access portal";
+      enable = (mkEnableOption "the Access portal") // {
+        default = true;
+      };
 
       command = nullOr types.str "Access dialog executable, defaults to the packaged zenzai-dialog-access.";
     };
 
     usb = {
-      enable = mkEnableOption "the USB portal";
+      enable = (mkEnableOption "the USB portal") // {
+        default = true;
+      };
 
       command = nullOr types.str "USB approval dialog executable, defaults to the packaged zenzai-dialog-access.";
     };
 
     settings = {
-      enable = mkEnableOption "the Settings portal";
+      enable = (mkEnableOption "the Settings portal") // {
+        default = true;
+      };
 
       colorScheme = nullOr (types.enum [
         "no-preference"
@@ -96,7 +102,9 @@ in
     };
 
     appchooser = {
-      enable = mkEnableOption "the App Chooser portal";
+      enable = (mkEnableOption "the App Chooser portal") // {
+        default = true;
+      };
 
       command = nullOr types.str "Application selector executable, defaults to the packaged zenzai-app-select.";
 
@@ -134,24 +142,34 @@ in
     };
 
     dynamicLauncher = {
-      enable = mkEnableOption "the DynamicLauncher portal";
+      enable = (mkEnableOption "the DynamicLauncher portal") // {
+        default = true;
+      };
 
       command = nullOr types.str "Launcher dialog executable, defaults to the packaged zenzai-dialog-launcher.";
     };
 
     email = {
-      enable = mkEnableOption "the Email portal";
+      enable = (mkEnableOption "the Email portal") // {
+        default = true;
+      };
 
       command = nullOr types.str "Email application selector executable, defaults to the packaged zenzai-app-select.";
     };
 
     print = {
-      enable = mkEnableOption "the Print portal";
+      enable = (mkEnableOption "the Print portal") // {
+        default = true;
+      };
 
       command = nullOr types.str "Print dialog executable, defaults to the packaged zenzai-dialog-print.";
     };
 
-    notification.enable = mkEnableOption "the Notification portal (requires a local notification daemon)";
+    notification.enable =
+      (mkEnableOption "the Notification portal (requires a local notification daemon)")
+      // {
+        default = true;
+      };
   };
 
   theme = {

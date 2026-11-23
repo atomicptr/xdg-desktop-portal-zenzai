@@ -10,10 +10,20 @@ use super::appchooser::service::AppChooserService;
 
 const MAILTO_TYPE: &str = "x-scheme-handler/mailto";
 
-#[derive(Debug, Default, Deserialize)]
+#[derive(Debug, Deserialize)]
+#[serde(default)]
 pub struct EmailConfig {
     pub enabled: bool,
     pub command: Option<String>,
+}
+
+impl Default for EmailConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            command: None,
+        }
+    }
 }
 
 pub struct EmailService {
