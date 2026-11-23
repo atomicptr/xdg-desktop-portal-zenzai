@@ -43,17 +43,86 @@ Tools integrated with the portal
       modules = [
         ./configuration.nix
         zenzai.nixosModules.default
-        {
+        ({ lib, pkgs, ... }: {
+
           services.xdg-desktop-portal-zenzai = {
             enable = true;
-            portals.settings = {
-              colorScheme = "dark";
-              accentColor = "#b4befe";
+            debug = false;
+
+            terminal = lib.getExe pkgs.ghostty;
+            iconTheme = "Papirus";
+
+            portals = {
+              account = {
+                id = "zenzai";
+                name = "Zenzai User";
+                image = "/home/zenzai/Pictures/avatar.png";
+              };
+
+              settings = {
+                colorScheme = "dark";
+                accentColor = "#b4befe";
+                contrast = "high";
+
+                dict = {
+                  "org.gnome.SomeApp" = {
+                    some-key = "some value";
+                    some-number = 1337;
+                  };
+                };
+              };
+
+              appchooser = {
+                writeMimeapps = true;
+                defaults = {
+                  "text/plain" = {
+                    command = lib.getExe pkgs.ghostty;
+                    arguments = [
+                      "-e"
+                      (lib.getExe pkgs.neovim)
+                      "--"
+                      "%file%"
+                    ];
+                  };
+                  "image/jpeg" = "oculante";
+                  "image/*" = [ "oculante" ];
+                };
+              };
+
+              # we've disabled print in this example
+              print.enable = false;
+            };
+
+            theme = {
+              name = "catppuccin-mocha";
+              font = "FiraMono";
+              textSize = 14;
+
+              palette = {
+                background = "#1e1e2e";
+                text = "#cdd6f4";
+                primary = "#b4befe";
+                success = "#a6e3a1";
+                warning = "#f9e2af";
+                danger = "#f38ba8";
+              };
             };
           };
 
-          xdg.portal.config.Hyprland."org.freedesktop.impl.portal.Settings" = [ "zenzai" ];
-        }
+          xdg.portal.config.Hyprland = {
+            default = [ "hyprland" "zenzai" ];
+
+            # or enable them one by one for what you want
+            "org.freedesktop.impl.portal.Access" = [ "zenzai" ];
+            "org.freedesktop.impl.portal.Account" = [ "zenzai" ];
+            "org.freedesktop.impl.portal.AppChooser" = [ "zenzai" ];
+            "org.freedesktop.impl.portal.DynamicLauncher" = [ "zenzai" ];
+            "org.freedesktop.impl.portal.Email" = [ "zenzai" ];
+            "org.freedesktop.impl.portal.Notification" = [ "zenzai" ];
+            "org.freedesktop.impl.portal.Settings" = [ "zenzai" ];
+            "org.freedesktop.impl.portal.Usb" = [ "zenzai" ];
+          };
+        })
       ];
     };
   };
