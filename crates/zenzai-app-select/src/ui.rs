@@ -14,6 +14,7 @@ use zenzai_core::{
     appearance::UiConfig,
     config,
     ui::{
+        icons::{self, Icon},
         theme,
         widgets::{self, PANE_PADDING},
     },
@@ -33,6 +34,7 @@ const ICON_SIZE: f32 = 28.0;
 type Outcome = Option<(usize, bool)>;
 
 struct State {
+    fallback_icon: Option<Icon>,
     apps: Arc<[App]>,
     suggested: Vec<usize>,
     all: Vec<usize>,
@@ -161,6 +163,7 @@ pub fn run(
         tracing::warn!("{err:#}");
         UiConfig::default()
     });
+    let fallback_icon = icons::load("application-x-executable", 28, config.icon_theme.as_deref());
     let theme = theme(&config);
     let outcome = Arc::new(Mutex::new(None));
 
@@ -175,6 +178,7 @@ pub fn run(
         let outcome = outcome.clone();
         move || {
             let mut state = State {
+                fallback_icon: fallback_icon.clone(),
                 apps: apps.clone(),
                 suggested: suggested.clone(),
                 all: all.clone(),
@@ -370,10 +374,15 @@ fn app_row(state: &State, index: usize) -> Element<'_, Message> {
             .width(ICON_SIZE)
             .height(ICON_SIZE)
             .into(),
-        None => container(text(""))
-            .width(ICON_SIZE)
-            .height(ICON_SIZE)
-            .into(),
+        None => state.fallback_icon.as_ref().map_or_else(
+            || {
+                container(text(""))
+                    .width(ICON_SIZE)
+                    .height(ICON_SIZE)
+                    .into()
+            },
+            |icon| icon.view(ICON_SIZE),
+        ),
     };
     let selected = state.selected == Some(index);
     let content = container(

@@ -146,6 +146,7 @@ pub enum Message {
 }
 
 pub struct State {
+    pub(super) icons: form::Icons,
     pub(super) dialog: Dialog,
     pub(super) window_size: Size,
     pub(super) more_settings: bool,
@@ -315,6 +316,7 @@ pub fn run(dialog: Dialog, request: Option<PrintRequest>) -> Result<Completion> 
         UiConfig::default()
     });
 
+    let icons = form::Icons::load(config.icon_theme.as_deref());
     let theme = theme(&config);
     let outcome = Arc::new(Mutex::new(Completion {
         outcome: Outcome::Cancelled,
@@ -326,7 +328,14 @@ pub fn run(dialog: Dialog, request: Option<PrintRequest>) -> Result<Completion> 
 
     let boot = {
         let outcome = outcome.clone();
-        move || boot(dialog.clone(), outcome.clone(), request.clone())
+        move || {
+            boot(
+                dialog.clone(),
+                outcome.clone(),
+                request.clone(),
+                icons.clone(),
+            )
+        }
     };
 
     let defaults = iced::Settings::default();
@@ -369,6 +378,7 @@ fn boot(
     dialog: Dialog,
     outcome: Arc<Mutex<Completion>>,
     portal_request: Option<PrintRequest>,
+    icons: form::Icons,
 ) -> (State, Task<Message>) {
     let destinations = dialog
         .allow_pdf
@@ -377,6 +387,7 @@ fn boot(
         .collect();
 
     let mut state = State {
+        icons,
         dialog,
         window_size: WINDOW_SIZE,
         more_settings: false,
@@ -898,6 +909,7 @@ mod tests {
                 request: None,
             })),
             None,
+            form::Icons::default(),
         );
 
         for size in [
@@ -965,6 +977,7 @@ mod tests {
             },
             Arc::clone(&completion),
             Some(PrintRequest::default()),
+            form::Icons::default(),
         );
         state.selected = Some(Destination::Printer(Printer {
             name: "printer".to_string(),

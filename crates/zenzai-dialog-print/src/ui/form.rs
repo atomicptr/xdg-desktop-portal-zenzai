@@ -2,10 +2,13 @@ use rust_i18n::t;
 
 use iced::{
     Alignment, ContentFit, Element, Fill, Length,
-    widget::{Column, button, checkbox, column, container, image, row, rule, text, text_input},
+    widget::{
+        Column, button, checkbox, column, container, image, row, rule, text, text_input, tooltip,
+    },
 };
 use zenzai_core::ui::{
     dropdown::{Search, dropdown},
+    icons::{self, Icon},
     widgets::{form_row, segmented, stepper},
 };
 
@@ -18,7 +21,7 @@ use crate::{
 };
 
 use super::{
-    app::{Message, Preview, State},
+    app::{Destination, Message, Preview, State},
     output,
 };
 
@@ -33,6 +36,39 @@ const EXPANDED: &str = "▾";
 const INLINE_PREVIEW_HEIGHT: f32 = 320.0;
 const PREVIOUS: &str = "‹";
 const NEXT: &str = "›";
+
+const ICON_SIZE: u16 = 16;
+
+#[derive(Clone, Default)]
+pub(super) struct Icons {
+    printer: Option<Icon>,
+    pdf: Option<Icon>,
+    previous: Option<Icon>,
+    next: Option<Icon>,
+    collapsed: Option<Icon>,
+    expanded: Option<Icon>,
+}
+
+impl Icons {
+    pub(super) fn load(theme: Option<&str>) -> Self {
+        let load = |name| icons::load(name, ICON_SIZE, theme);
+        Self {
+            printer: load("printer-symbolic").or_else(|| load("printer")),
+            pdf: load("application-pdf"),
+            previous: load("go-previous-symbolic"),
+            next: load("go-next-symbolic"),
+            collapsed: load("pan-end-symbolic"),
+            expanded: load("pan-down-symbolic"),
+        }
+    }
+}
+
+fn control_icon<'a>(icon: Option<&'a Icon>, fallback: &'static str) -> Element<'a, Message> {
+    icon.map_or_else(
+        || text(fallback).into(),
+        |icon| icon.view(u32::from(ICON_SIZE)),
+    )
+}
 
 fn edit(state: &State, f: impl FnOnce(&mut JobSettings)) -> Message {
     let mut settings = state.dialog.settings.clone();
@@ -91,6 +127,18 @@ fn fields(state: &State) -> Column<'_, Message> {
         Message::SelectDestination,
     );
 
+    let destination_icon = match &state.selected {
+        Some(Destination::Printer(_)) => state.icons.printer.as_ref(),
+        Some(Destination::SavePdf) => state.icons.pdf.as_ref(),
+        None => None,
+    };
+    let mut destination = row![destination]
+        .spacing(PAGES_SPACING)
+        .align_y(Alignment::Center);
+    if let Some(icon) = destination_icon {
+        destination = destination.push(icon.view(u32::from(ICON_SIZE)));
+    }
+
     let mut form =
         column![header, form_row(t!("print.destination"), destination)].spacing(FORM_SPACING);
 
@@ -144,14 +192,14 @@ fn fields(state: &State) -> Column<'_, Message> {
 
 fn more_toggle(state: &State) -> Element<'_, Message> {
     let arrow = if state.more_settings {
-        EXPANDED
+        control_icon(state.icons.expanded.as_ref(), EXPANDED)
     } else {
-        COLLAPSED
+        control_icon(state.icons.collapsed.as_ref(), COLLAPSED)
     };
 
     button(form_row(
         t!("print.more-settings"),
-        container(text(arrow)).align_right(CONTROL_WIDTH),
+        container(arrow).align_right(CONTROL_WIDTH),
     ))
     .style(button::text)
     .padding(0)
@@ -388,13 +436,21 @@ pub fn preview(state: &State) -> Element<'_, Message> {
     let side = state.preview_side;
 
     let navigation = row![
-        button(text(PREVIOUS))
-            .style(button::secondary)
-            .on_press_maybe(side.checked_sub(1).map(Message::PreviewSide)),
+        tooltip(
+            button(control_icon(state.icons.previous.as_ref(), PREVIOUS))
+                .style(button::secondary)
+                .on_press_maybe(side.checked_sub(1).map(Message::PreviewSide)),
+            text(t!("print.preview.previous")),
+            tooltip::Position::Top,
+        ),
         text(side_label(state, side, sides.len())),
-        button(text(NEXT))
-            .style(button::secondary)
-            .on_press_maybe((side + 1 < sides.len()).then_some(Message::PreviewSide(side + 1))),
+        tooltip(
+            button(control_icon(state.icons.next.as_ref(), NEXT))
+                .style(button::secondary)
+                .on_press_maybe((side + 1 < sides.len()).then_some(Message::PreviewSide(side + 1))),
+            text(t!("print.preview.next")),
+            tooltip::Position::Top,
+        ),
     ]
     .spacing(PAGES_SPACING)
     .align_y(Alignment::Center);

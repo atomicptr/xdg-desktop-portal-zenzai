@@ -97,6 +97,8 @@
 "print.preparing-preview" = "Preparing preview…"
 "print.preview" = "Preview"
 "print.preview-unavailable" = "Preview unavailable"
+"print.preview.next" = "Next sheet side"
+"print.preview.previous" = "Previous sheet side"
 "print.preview.position" = "%{current} / %{count}"
 "print.preview.sheet-back" = "%{position} · sheet %{sheet} back"
 "print.preview.sheet-front" = "%{position} · sheet %{sheet} front"

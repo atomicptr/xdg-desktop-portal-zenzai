@@ -1,26 +1,19 @@
-use std::{
-    fs::File,
-    io::{Cursor, Read},
-    str,
-    sync::{Arc, Mutex},
-};
+use std::sync::{Arc, Mutex};
 
 use anyhow::{Result, anyhow};
 use iced::{
-    Element, Event, Fill, Font, Size, Subscription, Task, Theme, event, keyboard,
-    widget::{
-        checkbox, column, container, image as raster, radio, row, rule, scrollable, svg, text,
-    },
+    Element, Event, Fill, Font, Size, Subscription, Task, event, keyboard,
+    widget::{checkbox, column, container, radio, row, rule, scrollable, text},
     window,
 };
-use image::{ImageFormat, ImageReader, Limits};
 use rust_i18n::t;
 use zenzai_core::{
     appearance::UiConfig,
     config,
     ipc::{AccessRequest, AccessResponse},
     ui::{
-        icons, theme,
+        icons::{self, Icon},
+        theme,
         widgets::{self, PANE_PADDING},
     },
 };
@@ -28,54 +21,6 @@ use zenzai_core::{
 const APP_ID: &str = "zenzai-dialog-access";
 const SPACING: u32 = 12;
 const ICON_SIZE: u16 = 48;
-const MAX_ICON_BYTES: u64 = 4 * 1024 * 1024;
-const MAX_ICON_DIMENSION: u32 = 1024;
-
-#[derive(Clone)]
-enum Icon {
-    Svg(svg::Handle, bool),
-    Png(raster::Handle),
-}
-
-fn load_icon(name: &str, theme: Option<&str>) -> Option<Icon> {
-    let path = icons::lookup(name, ICON_SIZE, theme)?;
-    if !path.metadata().ok()?.is_file() {
-        return None;
-    }
-
-    let mut bytes = Vec::new();
-    File::open(&path)
-        .ok()?
-        .take(MAX_ICON_BYTES + 1)
-        .read_to_end(&mut bytes)
-        .ok()?;
-    if bytes.len() as u64 > MAX_ICON_BYTES {
-        return None;
-    }
-
-    match path.extension()?.to_str()? {
-        "svg" => {
-            let symbolic = name.ends_with("-symbolic")
-                || str::from_utf8(&bytes).is_ok_and(|svg| svg.contains("currentColor"));
-            Some(Icon::Svg(svg::Handle::from_memory(bytes), symbolic))
-        }
-        "png" => {
-            let mut reader = ImageReader::with_format(Cursor::new(bytes), ImageFormat::Png);
-            let mut limits = Limits::default();
-            limits.max_image_width = Some(MAX_ICON_DIMENSION);
-            limits.max_image_height = Some(MAX_ICON_DIMENSION);
-            limits.max_alloc = Some(MAX_ICON_BYTES);
-            reader.limits(limits);
-            let pixels = reader.decode().ok()?.into_rgba8();
-            Some(Icon::Png(raster::Handle::from_rgba(
-                pixels.width(),
-                pixels.height(),
-                pixels.into_raw(),
-            )))
-        }
-        _ => None,
-    }
-}
 
 struct State {
     request: AccessRequest,
@@ -102,8 +47,8 @@ pub fn run(request: AccessRequest) -> Result<Option<AccessResponse>> {
     let icon = request
         .icon
         .as_deref()
-        .and_then(|name| load_icon(name, config.icon_theme.as_deref()))
-        .or_else(|| load_icon("dialog-question", config.icon_theme.as_deref()));
+        .and_then(|name| icons::load(name, ICON_SIZE, config.icon_theme.as_deref()))
+        .or_else(|| icons::load("dialog-question", ICON_SIZE, config.icon_theme.as_deref()));
     let theme = theme(&config);
     let font = config.theme.font.map(|name| Font::with_name(name.leak()));
     let defaults = iced::Settings::default();
@@ -227,17 +172,7 @@ fn view(state: &State) -> Element<'_, Message> {
         container(scrollable(
             row![
                 match &state.icon {
-                    Some(Icon::Svg(handle, symbolic)) => svg(handle.clone())
-                        .width(u32::from(ICON_SIZE))
-                        .height(u32::from(ICON_SIZE))
-                        .style(move |theme: &Theme, _| svg::Style {
-                            color: symbolic.then_some(theme.palette().text),
-                        })
-                        .into(),
-                    Some(Icon::Png(handle)) => raster(handle.clone())
-                        .width(u32::from(ICON_SIZE))
-                        .height(u32::from(ICON_SIZE))
-                        .into(),
+                    Some(icon) => icon.view(u32::from(ICON_SIZE)),
                     None => Element::from(container(text(""))),
                 },
                 content
