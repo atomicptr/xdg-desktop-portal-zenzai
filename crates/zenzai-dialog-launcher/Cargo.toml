@@ -20,7 +20,7 @@ tokio = { workspace = true, features = ["rt"] }
 url = "2.5.9"
 tracing.workspace = true
 tracing-subscriber.workspace = true
-usvg = { version = "0.45.1", default-features = false, features = ["text", "system-fonts"] }
+usvg = { version = "0.50.0", default-features = false, features = ["text", "system-fonts"] }
 zenzai-core = { workspace = true, features = ["ui"] }
 
 [lints]
