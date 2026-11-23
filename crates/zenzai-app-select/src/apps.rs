@@ -204,22 +204,7 @@ fn from_entry(
         which(executable)?;
     }
 
-    // Exec parsing treats field codes literally: %f/%F need local paths, %u/%U URIs.
-    let local = Url::parse(file)
-        .ok()
-        .and_then(|uri| uri.to_file_path().ok());
-    let argument = if entry
-        .exec()
-        .is_some_and(|exec| exec.contains("%f") || exec.contains("%F"))
-    {
-        local
-            .as_ref()
-            .context("application requires a local file")?
-            .to_string_lossy()
-    } else {
-        Cow::Borrowed(file)
-    };
-    let command = entry.parse_exec_with_uris(&[&argument], locales)?;
+    let command = desktop_command(entry, file, locales)?;
     which(command.first().context("empty Exec")?)?;
     let icon = entry.icon().and_then(|icon| {
         let path = PathBuf::from(icon);
@@ -250,6 +235,41 @@ fn from_entry(
             .map(PathBuf::from),
         terminal: entry.terminal(),
     })
+}
+
+fn desktop_command(entry: &DesktopEntry, uri: &str, locales: &[String]) -> Result<Vec<String>> {
+    let mut chars = entry.exec().context("missing Exec")?.chars();
+    let mut file_code = None;
+    while let Some(character) = chars.next() {
+        if character == '%'
+            && let Some(code @ ('f' | 'F' | 'u' | 'U')) = chars.next()
+        {
+            ensure!(
+                file_code.replace(code).is_none(),
+                "multiple file field codes"
+            );
+        }
+    }
+
+    let local = Url::parse(uri).ok().and_then(|uri| uri.to_file_path().ok());
+    let path = local.as_ref().and_then(|path| path.to_str());
+    let argument = match file_code {
+        Some('f' | 'F') => path.context("application requires a UTF-8 local filename")?,
+        // Converting to a path would lose the URI fragment.
+        _ if uri.contains('#') || entry.desktop_entry("X-GIO-NoFuse") == Some("true") => uri,
+        _ => path.unwrap_or(uri),
+    };
+    let mut command = entry.parse_exec_with_uris(&[argument], locales)?;
+
+    // Missing file placeholders imply a local-file argument.
+    if file_code.is_none() && local.is_some() {
+        command.push(
+            path.context("local filename is not valid UTF-8")?
+                .to_string(),
+        );
+    }
+
+    Ok(command)
 }
 
 fn desktop_files(root: PathBuf) -> Vec<PathBuf> {
@@ -326,6 +346,60 @@ fn expand_types(content_type: &str, relations: &[(String, String)]) -> HashSet<S
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn desktop_file_arguments_preserve_paths_and_uris() {
+        let uri = "file:///tmp/a%20%22quoted%22%20%E6%97%A5%E6%9C%AC%E8%AA%9E%20%25U.png";
+        let path = "/tmp/a \"quoted\" 日本語 %U.png";
+        let remote = "https://example.com/image.png";
+        let fragment = "file:///tmp/image.png#page=2";
+        let non_utf8 = "file:///tmp/%FF.png";
+        let cases = [
+            ("viewer %U", "", uri, Some(path)),
+            ("viewer %u", "", uri, Some(path)),
+            ("viewer %F", "", uri, Some(path)),
+            ("viewer %f", "X-GIO-NoFuse=true", uri, Some(path)),
+            ("viewer %U", "X-GIO-NoFuse=true", uri, Some(uri)),
+            ("viewer %U", "X-GIO-NoFuse=false", uri, Some(path)),
+            ("viewer %U", "", fragment, Some(fragment)),
+            ("viewer %f", "", fragment, Some("/tmp/image.png")),
+            ("viewer %U", "", remote, Some(remote)),
+            ("viewer %U", "", non_utf8, Some(non_utf8)),
+            ("viewer %u", "", non_utf8, Some(non_utf8)),
+            ("viewer", "", uri, Some(path)),
+            ("viewer", "", remote, None),
+        ];
+
+        for (exec, options, uri, argument) in cases {
+            let entry = DesktopEntry::from_str(
+                "viewer.desktop",
+                &format!(
+                    "[Desktop Entry]\nType=Application\nName=Viewer\nExec={exec}\n{options}\n"
+                ),
+                None::<&[&str]>,
+            )
+            .unwrap();
+            let expected: Vec<_> = [Some("viewer"), argument].into_iter().flatten().collect();
+            assert_eq!(
+                desktop_command(&entry, uri, &[]).unwrap(),
+                expected,
+                "{exec}, {options}, {uri}"
+            );
+        }
+    }
+
+    #[test]
+    fn desktop_file_arguments_reject_unrepresentable_local_paths() {
+        for exec in ["viewer %f", "viewer %F", "viewer"] {
+            let entry = DesktopEntry::from_str(
+                "viewer.desktop",
+                &format!("[Desktop Entry]\nType=Application\nName=Viewer\nExec={exec}\n"),
+                None::<&[&str]>,
+            )
+            .unwrap();
+            assert!(desktop_command(&entry, "file:///tmp/%FF.png", &[]).is_err());
+        }
+    }
 
     #[test]
     fn mime_parents_are_transitive_and_cycles_terminate() {
