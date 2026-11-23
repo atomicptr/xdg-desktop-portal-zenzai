@@ -218,7 +218,10 @@ To use zenzai you need to create `~/.config/xdg-desktop-portal/CURRENT_DESKTOP_N
 
 ```
 [preferred]
-default=hyprland;zenzai;gtk
+# just use default
+default=hyprland;zenzai
+
+# you might also want to override individual portals...
 org.freedesktop.impl.portal.Access=zenzai
 org.freedesktop.impl.portal.Account=zenzai
 org.freedesktop.impl.portal.AppChooser=zenzai
@@ -232,7 +235,7 @@ org.freedesktop.impl.portal.Usb=zenzai
 
 ## Motivation
 
-The goal for me is to use this to replace xdg-desktop-portal-gtk completely on my Hyprland setup.
+I wanted to get rid of xdg-desktop-portal-gtk on my Hyprland setup
 
 ## License
 
