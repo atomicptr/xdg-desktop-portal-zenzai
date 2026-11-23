@@ -1,8 +1,11 @@
-use anyhow::Result;
+use std::env;
+
+use anyhow::{Result, anyhow};
 use config::Config;
 use constants::{APP_VERSION, DBUS_NAME, DBUS_PATH};
 use portals::{
     access::{AccessService, DIALOG_COMMAND as ACCESS_DIALOG_COMMAND},
+    account::{AccountService, AccountState},
     appchooser::service::{AppChooserService, SELECT_COMMAND},
     dynamic_launcher::{DIALOG_COMMAND as LAUNCHER_DIALOG_COMMAND, DynamicLauncherService},
     email::EmailService,
@@ -25,6 +28,7 @@ mod reload;
 mod utils;
 rust_i18n::i18n!("../../locales", fallback = "en");
 
+const PORTAL_WHITELIST: &str = "ZENZAI_PORTAL_WHITELIST";
 #[tokio::main]
 async fn main() -> Result<()> {
     zenzai_core::i18n::init();
@@ -43,18 +47,26 @@ async fn main() -> Result<()> {
     tracing::info!("xdg-desktop-portal-zenzai v{} started!", APP_VERSION);
 
     let mut watcher = ConfigWatcher::new()?;
-    let config: Config = load_or_default()?;
+    let whitelist = env::var_os(PORTAL_WHITELIST)
+        .map(|value| {
+            value
+                .into_string()
+                .map_err(|_| anyhow!("{PORTAL_WHITELIST} must contain valid Unicode"))
+        })
+        .transpose()?;
+    let mut config: Config = load_or_default()?;
+    config.restrict_portals(whitelist.as_deref())?;
     let mut reload = Reload {
         enabled: EnabledPortals::from(&config),
+        whitelist,
         access: None,
+        account: None,
         usb: None,
         appchooser: None,
         dynamic_launcher: None,
         email: None,
         print: None,
     };
-
-    tracing::debug!("Config: {:?}", config);
 
     drop(config.terminal);
     let mut any_enabled = false;
@@ -81,6 +93,22 @@ async fn main() -> Result<()> {
                 conn = conn.serve_at(DBUS_PATH, AccessService { command });
             }
             Err(err) => tracing::error!("Access disabled, could not find {command:?}: {err}"),
+        }
+    }
+
+    if config.account.enabled {
+        let config = config.account;
+        let command = config.command.as_deref().unwrap_or(ACCESS_DIALOG_COMMAND);
+        match resolve_command(command) {
+            Ok(command) => {
+                any_enabled = true;
+                let (sender, state) = watch::channel(AccountState { config, command });
+
+                reload.account = Some(sender);
+                conn = conn.serve_at(DBUS_PATH, AccountService { state });
+                tracing::info!("portal: org.freedesktop.portal.Account enabled!");
+            }
+            Err(err) => tracing::error!("Account disabled, could not find {command:?}: {err}"),
         }
     }
 

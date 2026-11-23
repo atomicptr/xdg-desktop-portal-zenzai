@@ -5,6 +5,7 @@ A collection of several xdg-desktop-portal implementations to serve more lightwe
 ## Supported Portals
 
 - [Access](https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.impl.portal.Access.html) - approve or deny access requests
+- [Account](https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.impl.portal.Account.html) - share account information after approval
 - [App Chooser](https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.impl.portal.AppChooser.html) - choose an application
 - [Dynamic Launcher](https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.impl.portal.DynamicLauncher.html) - approve launcher creation
 - [Email](https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.impl.portal.Email.html) - compose email using the application chooser
@@ -73,9 +74,21 @@ icon-theme = "Papirus"
 enabled = true
 command = "zenzai-dialog-access" # executable override, looked up on PATH by default
 
-### USB Portal Config (opt-in)
+### Account Portal Config
+[account]
+enabled = true # default; independent of access.enabled
+command = "zenzai-dialog-access" # executable override, looked up on PATH by default
+# id = "zenzai"
+#   if unset, this will use your login username
+#   if set to empty string it will not show this
+# name = "Zenzai User"
+#   if unset, this will use your GECOS name
+#   if set to empty string it will not show this
+# image = "/home/zenzai/Pictures/avatar.png"
+
+### USB Portal Config
 [usb]
-enabled = true # independent of access.enabled
+enabled = true
 command = "zenzai-dialog-access" # executable override, looked up on PATH by default
 
 ### App Chooser Portal Config
@@ -90,14 +103,14 @@ write-mimeapps = true # set false to keep remembered defaults local without upda
 "image/jpeg" = "io.github.woelper.Oculante" # or execute desktop files
 "image/*" = ["io.github.woelper.Oculante.desktop", { command = "imv" }]
 
-### Dynamic Launcher Portal Config (opt-in)
+### Dynamic Launcher Portal Config
 [dynamic-launcher]
 enabled = true
 command = "zenzai-dialog-launcher" # executable override, looked up on PATH by default
 
 ### Email Portal Config
 [email]
-enabled = true # independent of appchooser.enabled
+enabled = true
 command = "zenzai-app-select" # selector executable override, looked up on PATH by default
 
 ### Settings Portal Config
@@ -118,7 +131,7 @@ command = "zenzai-dialog-print" # path to the `zenzai-dialog-print` cli, looked 
 
 ### Notification Portal Config
 [notification]
-enabled = true # requires a daemon providing org.freedesktop.Notifications
+enabled = true
 
 ### Theme for internal tools like `zenzai-app-select` and `zenzai-dialog-print`
 [theme]
@@ -138,6 +151,7 @@ To use zenzai you need to create `~/.config/xdg-desktop-portal/CURRENT_DESKTOP_N
 [preferred]
 default=hyprland;zenzai;gtk
 org.freedesktop.impl.portal.Access=zenzai
+org.freedesktop.impl.portal.Account=zenzai
 org.freedesktop.impl.portal.AppChooser=zenzai
 org.freedesktop.impl.portal.DynamicLauncher=zenzai
 org.freedesktop.impl.portal.Email=zenzai

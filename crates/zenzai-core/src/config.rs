@@ -1,6 +1,9 @@
-use std::{env, fs, path::PathBuf};
+use std::{
+    env, fs,
+    path::{Path, PathBuf},
+};
 
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, anyhow};
 use serde::{Serialize, de::DeserializeOwned};
 
 const APP_NAME: &str = "xdg-desktop-portal-zenzai";
@@ -29,7 +32,19 @@ pub fn load_or_default<T: DeserializeOwned + Default>() -> Result<T> {
     };
 
     let data = fs::read_to_string(&path)?;
-    toml::from_str(&data).with_context(|| format!("could not parse {}", path.display()))
+    parse_config(&data, &path)
+}
+
+fn parse_config<T: DeserializeOwned>(data: &str, path: &Path) -> Result<T> {
+    toml::from_str(data).map_err(|error| {
+        let location = error
+            .span()
+            .map(|span| format!(" at byte offset {}", span.start))
+            .unwrap_or_default();
+
+        // Both source excerpts and deserialization messages can contain personal data.
+        anyhow!("could not parse {}{location}", path.display())
+    })
 }
 
 fn state_file(name: &str) -> Option<PathBuf> {
@@ -54,4 +69,46 @@ pub fn save_state<T: Serialize>(name: &str, value: &T) -> Result<()> {
 
     fs::write(path, toml::to_string(value)?)?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde::Deserialize;
+
+    #[derive(Debug, Deserialize)]
+    struct Config {
+        #[serde(rename = "enabled")]
+        _enabled: bool,
+    }
+
+    #[test]
+    fn parse_errors_do_not_expose_config_values() {
+        const SENTINEL: &str = "PRIVATE_ACCOUNT_SENTINEL";
+        let path = Path::new("/config/config.toml");
+
+        for data in [
+            format!("enabled = {SENTINEL}"),
+            format!("enabled = \"{SENTINEL}\""),
+        ] {
+            let error = parse_config::<Config>(&data, path).unwrap_err();
+
+            for rendered in [
+                error.to_string(),
+                format!("{error:#}"),
+                format!("{error:?}"),
+                format!("{error:#?}"),
+            ] {
+                assert!(!rendered.contains(SENTINEL));
+                assert!(rendered.contains("/config/config.toml at byte offset "));
+            }
+
+            assert_eq!(error.chain().count(), 1);
+
+            for cause in error.chain() {
+                assert!(!cause.to_string().contains(SENTINEL));
+                assert!(!format!("{cause:?}").contains(SENTINEL));
+            }
+        }
+    }
 }

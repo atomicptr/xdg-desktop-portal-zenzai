@@ -5,6 +5,13 @@ icon-theme = "Papirus"
 command = "zenzai-dialog-access"
 enabled = true
 
+[account]
+command = "zenzai-dialog-access"
+enabled = true
+id = "zenzai"
+name = "Zenzai User"
+image = "/home/zenzai/Pictures/avatar.png"
+
 [appchooser]
 command = "zenzai-app-select"
 enabled = true

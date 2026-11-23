@@ -48,6 +48,30 @@ in
 
   iconTheme = nullOr types.str "Icon theme used by all companion GUIs; preserves default lookup when unset.";
   portals = {
+    account = {
+      enable = (mkEnableOption "the Account portal") // {
+        default = true;
+      };
+
+      command = nullOr types.str "Account approval dialog executable, defaults to the packaged zenzai-dialog-access.";
+
+      id = nullOr types.str ''
+        Account ID shared after approval. Defaults to the system login username when unset;
+        an empty string suppresses the ID. This value is not a secret.
+      '';
+
+      name = nullOr types.str ''
+        Account name shared after approval. Defaults to the GECOS real name when unset;
+        an empty string suppresses the name. This value is not a secret.
+      '';
+
+      image = nullOr (types.strMatching "/.*") ''
+        Absolute local path to the account image shared after approval. No image is
+        discovered automatically. The dialog shows the path, not an image preview.
+        This value is not a secret.
+      '';
+    };
+
     access = {
       enable = (mkEnableOption "the Access portal") // {
         default = true;

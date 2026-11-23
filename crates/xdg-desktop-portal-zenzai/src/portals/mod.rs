@@ -1,4 +1,5 @@
 pub mod access;
+pub mod account;
 pub mod appchooser;
 pub mod dynamic_launcher;
 pub mod email;

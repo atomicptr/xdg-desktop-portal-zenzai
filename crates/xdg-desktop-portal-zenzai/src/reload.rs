@@ -20,7 +20,8 @@ use crate::{
     config::Config,
     constants::DBUS_PATH,
     portals::{
-        access::DIALOG_COMMAND as ACCESS_DIALOG_COMMAND, appchooser::service::SELECT_COMMAND,
+        access::DIALOG_COMMAND as ACCESS_DIALOG_COMMAND, account::AccountState,
+        appchooser::service::SELECT_COMMAND,
         dynamic_launcher::DIALOG_COMMAND as LAUNCHER_DIALOG_COMMAND, print::dialog::DIALOG_COMMAND,
         settings::service::SettingsService, usb::DIALOG_COMMAND as USB_DIALOG_COMMAND,
     },
@@ -59,6 +60,7 @@ fn watch_directories(targets: &HashSet<PathBuf>) -> HashMap<PathBuf, DirectoryId
 #[derive(PartialEq, Eq)]
 pub struct EnabledPortals {
     access: bool,
+    account: bool,
     usb: bool,
     settings: bool,
     appchooser: bool,
@@ -72,6 +74,7 @@ impl From<&Config> for EnabledPortals {
     fn from(config: &Config) -> Self {
         Self {
             access: config.access.enabled,
+            account: config.account.enabled,
             usb: config.usb.enabled,
             settings: config.settings.enabled,
             appchooser: config.appchooser.enabled,
@@ -221,7 +224,9 @@ fn watch_targets() -> HashSet<PathBuf> {
 
 pub struct Reload {
     pub enabled: EnabledPortals,
+    pub whitelist: Option<String>,
     pub access: Option<watch::Sender<PathBuf>>,
+    pub account: Option<watch::Sender<AccountState>>,
     pub usb: Option<watch::Sender<PathBuf>>,
     pub appchooser: Option<watch::Sender<PathBuf>>,
     pub dynamic_launcher: Option<watch::Sender<PathBuf>>,
@@ -232,7 +237,8 @@ pub struct Reload {
 impl Reload {
     pub async fn apply(&mut self, connection: &Connection) -> Result<()> {
         // Deserialize the entire file before mutating any running service.
-        let config: Config = load_or_default()?;
+        let mut config: Config = load_or_default()?;
+        config.restrict_portals(self.whitelist.as_deref())?;
         let enabled = EnabledPortals::from(&config);
         if enabled != self.enabled {
             tracing::warn!(
@@ -267,6 +273,25 @@ impl Reload {
                 sender,
                 config.command.as_deref().unwrap_or(ACCESS_DIALOG_COMMAND),
             );
+        }
+
+        if let Some(sender) = &self.account {
+            let command = config
+                .account
+                .command
+                .as_deref()
+                .unwrap_or(ACCESS_DIALOG_COMMAND);
+            let command = match resolve_command(command) {
+                Ok(command) => command,
+                Err(err) => {
+                    tracing::warn!("keeping previous account command: {err}");
+                    sender.borrow().command.clone()
+                }
+            };
+            sender.send_replace(AccountState {
+                config: config.account,
+                command,
+            });
         }
 
         if let Some(sender) = &self.usb {

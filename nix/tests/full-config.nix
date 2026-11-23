@@ -3,6 +3,14 @@
   terminal = "wezterm";
   iconTheme = "Papirus";
 
+  portals.account = {
+    enable = true;
+    command = "zenzai-dialog-access";
+    id = "zenzai";
+    name = "Zenzai User";
+    image = "/home/zenzai/Pictures/avatar.png";
+  };
+
   portals.access = {
     enable = true;
     command = "zenzai-dialog-access";

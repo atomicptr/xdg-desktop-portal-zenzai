@@ -2362,6 +2362,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "nix"
+version = "0.29.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "71e2746dc3a24dd78b3cfcb7be93368c6de9963d30f43a6a73998a9cf4b17b46"
+dependencies = [
+ "bitflags 2.13.2",
+ "cfg-if",
+ "cfg_aliases",
+ "libc",
+]
+
+[[package]]
 name = "nohash-hasher"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5115,10 +5127,11 @@ checksum = "2fb433233f2df9344722454bc7e96465c9d03bff9d77c248f9e7523fe79585b5"
 
 [[package]]
 name = "xdg-desktop-portal-zenzai"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "anyhow",
  "futures-util",
+ "nix",
  "notify",
  "rand",
  "rust-i18n",
@@ -5260,7 +5273,7 @@ checksum = "6df3dc4292935e51816d896edcd52aa30bc297907c26167fec31e2b0c6a32524"
 
 [[package]]
 name = "zenzai-app-select"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -5284,7 +5297,7 @@ dependencies = [
 
 [[package]]
 name = "zenzai-core"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "anyhow",
  "csscolorparser",
@@ -5299,7 +5312,7 @@ dependencies = [
 
 [[package]]
 name = "zenzai-dialog-access"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -5313,7 +5326,7 @@ dependencies = [
 
 [[package]]
 name = "zenzai-dialog-launcher"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "anyhow",
  "ashpd",
@@ -5333,7 +5346,7 @@ dependencies = [
 
 [[package]]
 name = "zenzai-dialog-print"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "anyhow",
  "ashpd",

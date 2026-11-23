@@ -148,11 +148,29 @@ pub async fn prompt(
     connection: &Connection,
     header: Header<'_>,
 ) -> fdo::Result<Result<Option<AccessResponse>>> {
+    prompt_prepared(
+        command,
+        async { Ok((request.clone(), ())) },
+        handle,
+        connection,
+        header,
+    )
+    .await
+    .map(|outcome| outcome.map(|response| response.map(|(response, ())| response)))
+}
+
+pub async fn prompt_prepared<T>(
+    command: PathBuf,
+    prepare: impl Future<Output = Result<(AccessRequest, T)>>,
+    handle: ObjectPath<'_>,
+    connection: &Connection,
+    header: Header<'_>,
+) -> fdo::Result<Result<Option<(AccessResponse, T)>>> {
     let sender = header
         .sender()
         .ok_or_else(|| fdo::Error::AccessDenied("missing caller".into()))?
         .to_string();
-    let (cancelled, receiver) = watch::channel(false);
+    let (cancelled, mut receiver) = watch::channel(false);
     if connection
         .object_server()
         .at(&handle, Request { sender, cancelled })
@@ -164,7 +182,20 @@ pub async fn prompt(
         ));
     }
 
-    let outcome = run_dialog(command, request, receiver).await;
+    let outcome = async {
+        let (request, value) = tokio::select! {
+            biased;
+            _ = receiver.wait_for(|cancelled| *cancelled) => return Ok(None),
+            prepared = prepare => prepared?,
+        };
+        if *receiver.borrow() {
+            return Ok(None);
+        }
+        run_dialog(command, &request, receiver)
+            .await
+            .map(|response| response.map(|response| (response, value)))
+    }
+    .await;
     connection
         .object_server()
         .remove::<Request, _>(&handle)

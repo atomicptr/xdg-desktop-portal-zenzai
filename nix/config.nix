@@ -2,6 +2,7 @@
 cfg:
 let
   inherit (cfg.portals)
+    account
     access
     usb
     settings
@@ -14,6 +15,13 @@ in
 lib.filterAttrsRecursive (_: value: value != null) {
   inherit (cfg) terminal;
   icon-theme = cfg.iconTheme;
+
+  account = {
+    enabled = account.enable;
+    command =
+      if account.command != null then account.command else lib.getExe' cfg.package "zenzai-dialog-access";
+    inherit (account) id name image;
+  };
 
   access = {
     enabled = access.enable;
