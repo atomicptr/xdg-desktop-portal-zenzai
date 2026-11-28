@@ -59,7 +59,9 @@ impl From<SettingsMapValue> for Variant<'static> {
     fn from(value: SettingsMapValue) -> Self {
         match value {
             SettingsMapValue::String(value) => Variant::from(value),
-            SettingsMapValue::Int(value) => Variant::from(value),
+            SettingsMapValue::Int(value) => {
+                i32::try_from(value).map_or_else(|_| Variant::from(value), Variant::from)
+            }
             SettingsMapValue::Bool(value) => Variant::from(value),
             SettingsMapValue::Float(value) => Variant::from(value),
         }

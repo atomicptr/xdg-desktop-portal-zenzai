@@ -150,12 +150,13 @@ color-scheme = "light"
 unchanged = true
 changed = 2
 added = "new"
+huge = 4294967296
 "#;
         let mut service = SettingsService::new(toml::from_str(initial).unwrap());
         assert!(service.update(toml::from_str(initial).unwrap()).is_empty());
 
         let changes = service.update(toml::from_str(updated).unwrap());
-        assert_eq!(changes.len(), 4);
+        assert_eq!(changes.len(), 5);
         let find = |namespace, key| {
             &changes
                 .iter()
@@ -168,8 +169,12 @@ added = "new"
             find(NAMESPACE, KEY_ACCENT_COLOR),
             &Variant::from((-1.0, -1.0, -1.0))
         );
-        assert_eq!(find("org.example", "changed"), &Variant::from(2i64));
+        assert_eq!(find("org.example", "changed"), &Variant::from(2i32));
         assert_eq!(find("org.example", "added"), &Variant::from("new"));
+        assert_eq!(
+            find("org.example", "huge"),
+            &Variant::from(4_294_967_296i64)
+        );
         assert!(!service.values["org.example"].contains_key("removed"));
         assert!(service.update(toml::from_str(updated).unwrap()).is_empty());
 
